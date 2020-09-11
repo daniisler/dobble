@@ -23,15 +23,15 @@ def test(card_list):
 def generateVectors(size):
     vectors = []
     for i in range(1, size):
-        vectors.append((i,1))
+        vectors.append((i, 1))
     
     return vectors
 
 
 def fanoplane(size):
 
-    List = [[i+size*j for i in range(size)] for j in range(size)]
-    List2 = [size*size+i for i in range(size+1)]
+    List = [[i + size * j for i in range(size)] for j in range(size)]
+    List2 = [size * size + i for i in range(size + 1)]
 
     vectors = generateVectors(size)
     card_list = []
@@ -57,14 +57,14 @@ def fanoplane(size):
             x_pos = offset
             new_List = []
             for step in range(size):
-                new_List.append(List[(x_pos+step*x)%size][(y_pos+step*y)%size])
-            new_List.append(List2[i+1])
+                new_List.append(List[(x_pos + step * x) % size][(y_pos + step * y) % size])
+            new_List.append(List2[i + 1])
             card_list.append(new_List)
 
     card_list.append(List2)
 
     return card_list
-cards = fanoplane(size)
+
 
 
 ##---------------------------------------SERVERCONFIG----------------------------------------------------------------------------
@@ -84,21 +84,22 @@ cards = fanoplane(size)
 => end                  END|winner
 => countdown            COUNTDOWN|second
 => ready                READY|userid
+
 """
 
 num_players = 1
 ip = "localhost"
-port = 5772
-input_queue = Queue(maxsize=0)
-output_queu = Queue(maxsize=0)
+port = 5775
+input_queue = Queue(maxsize = 0)
+output_queu = Queue(maxsize = 0)
 
-newplayer_queue = Queue(maxsize=0)
+newplayer_queue = Queue(maxsize = 0)
 
 serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-serverSocket.bind((ip,port))
+serverSocket.bind((ip, port))
 
-def listen(socket,queue):
+def listen(socket, queue):
     
     while True:
 
@@ -106,23 +107,27 @@ def listen(socket,queue):
         connection, address = serverSocket.accept()
         queue.put(connection)
 
-def recv_from(socket,queue):
+def recv_from(socket, queue):
     
     while True:
         msg = socket.recv(1024)
         queue.put(msg)
 
-for i in range(1):
+
+players = []
+for i in range(2):
     loading = True
-    players = []
+    game = True
+    cards = fanoplane(size)
     user_ready = []
-    Thread(target=listen, args=[serverSocket,newplayer_queue]).start()
+    Thread(target = listen, args = [serverSocket, newplayer_queue]).start()
+    print(players)
     while loading:
         if not newplayer_queue.empty():
             connection = newplayer_queue.get()
-            connection.send(("$USERID|"+str(len(players))).encode("utf-8"))
+            connection.send(("$USERID|" + str(len(players))).encode("utf-8"))
             players.append(connection)
-            Thread(target=recv_from,args=[connection,input_queue]).start()
+            Thread(target = recv_from, args = [connection, input_queue]).start()
 
         if not input_queue.empty():
             
@@ -149,15 +154,15 @@ for i in range(1):
                         card_join = ":".join([str(imageId) for imageId in card])
                         player_cardlist_join.append(card_join)
                     encoded_message = "#".join(player_cardlist_join)
-                    send_message = "$CARDSTACK|"+encoded_message
+                    send_message = "$CARDSTACK|" + encoded_message
                     players[p].send(send_message.encode("utf-8"))
                     
-                msg_activ_card = "$ACTIVECARD|"+":".join([str(imageId) for imageId in active_card])
-                msg_score = "|"+":".join(["0"] * len(players))
+                msg_activ_card = "$ACTIVECARD|" + ":".join([str(imageId) for imageId in active_card])
+                msg_score = "|" + ":".join(["0"] * len(players))
                 for player in players:
-                    player.send((msg_activ_card+msg_score).encode("utf-8"))
+                    player.send((msg_activ_card + msg_score).encode("utf-8"))
                 for i in range(5, 0, -1):
-                    msg_countdown = "$COUNTDOWN|"+str(i)
+                    msg_countdown = "$COUNTDOWN|" + str(i)
                     for player in players:
                         player.send(msg_countdown.encode("utf-8"))
                     time.sleep(1)
@@ -165,11 +170,10 @@ for i in range(1):
                     player.send("$START|.".encode("utf-8"))
                 loading = False
 
- # Add demons = True
 
     score = [0] * len(players)
 
-    while True:
+    while game:
         if not input_queue.empty():
             msg = input_queue.get().decode("utf-8")
             msg_split = msg.split("|")
@@ -177,15 +181,16 @@ for i in range(1):
                 actor = int(msg_split[1])
                 score[actor] += 1
                 active_card = player_cardlist[actor].pop()
-                msg_activ_card = "$ACTIVECARD|"+":".join([str(imageId) for imageId in active_card])
-                msg_score = "|"+":".join([str(points) for points in score])
+                msg_activ_card = "$ACTIVECARD|" + ":".join([str(imageId) for imageId in active_card])
+                msg_score = "|" + ":".join([str(points) for points in score])
                 for player in players:
-                    player.send((msg_activ_card+msg_score).encode("utf-8"))
+                    player.send((msg_activ_card + msg_score).encode("utf-8"))
                 print(score)
                 
                 if len(player_cardlist[actor]) == 1:
+                    game = False
                     print("player won!")
-                    msg_won = "$END|"+str(actor)
+                    msg_won = "$END|" + str(actor)
                     for player in players:
                         player.send(msg_won.encode("utf-8"))
 
