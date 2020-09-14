@@ -142,7 +142,7 @@ screen = pygame.display.set_mode((1400, 700))
 
 
 while True:
-    ready_button = Button(screen, (350, 250), (700, 200), "ready?", (250, 0, 0), (250, 250, 0), False)
+    ready_button = Button(screen, (350, 250), (700, 200), "Ready?", (250, 0, 0), (250, 250, 0), False, 180)
     penalty_queue = Queue(maxsize = 0)
     do_penalty = False
     ready_button.draw()
@@ -220,7 +220,7 @@ while True:
     print("gameEnd", user)
     screen.fill((0, 0, 0))
     scoreBoard(screen, (50, 50), (1200, 500), score_list, user)
-    replay_button = Button(screen, (50, 575), (1200, 100), "Again?", (250, 0, 0), (0, 0, 30), False)
+    replay_button = Button(screen, (50, 575), (1200, 100), "Again?", (250, 0, 0), (0, 0, 30), False, 80)
     replay_button.draw()
     pygame.display.update()
     replay = True
@@ -231,6 +231,7 @@ while True:
             replay_button.handle_event(event)
         if replay_button.active:
             replay = False
+    screen.fill((0, 0, 0))
     active_card = None
     personal_card = None
     game = False

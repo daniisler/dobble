@@ -8,7 +8,7 @@ def text_objects(text, font, color = (255, 255, 255)):
 
 class Button:
 
-    def __init__(self, screen, pos, size, text, active_color, passive_color, active, font_size = 100):
+    def __init__(self, screen, pos, size, text, active_color, passive_color, active, font_size):
         self.screen = screen
         self.pos = pos
         self.size = size
