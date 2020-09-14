@@ -9,7 +9,7 @@ from screens import *
 import time
 
 pygame.init()
-ip = "localhost"
+ip = "192.168.43.109"
 port = 5771
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -175,7 +175,7 @@ while True:
                 pygame.quit()
             if event.type == pygame.MOUSEBUTTONDOWN:
 
-                clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
+                # clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
                 
                 pos = pygame.mouse.get_pos()
                 image_id = personal_card.collide(pos)
