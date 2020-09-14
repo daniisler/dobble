@@ -89,7 +89,7 @@ def fanoplane(size):
 
 num_players = 1
 ip = "localhost"
-port = 5775
+port = 5771
 input_queue = Queue(maxsize = 0)
 output_queu = Queue(maxsize = 0)
 
@@ -115,7 +115,7 @@ def recv_from(socket, queue):
 
 
 players = []
-for i in range(2):
+while True:
     loading = True
     game = True
     cards = fanoplane(size)
