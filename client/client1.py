@@ -175,7 +175,7 @@ while True:
                 pygame.quit()
             if event.type == pygame.MOUSEBUTTONDOWN:
 
-                #clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
+                # clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
                 
                 pos = pygame.mouse.get_pos()
                 image_id = personal_card.collide(pos)
