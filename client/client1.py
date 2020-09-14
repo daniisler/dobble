@@ -10,7 +10,7 @@ import time
 
 pygame.init()
 ip = "localhost"
-port = 5775
+port = 5771
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def dec_cardstack(enc_message):
@@ -57,7 +57,7 @@ go = False
 lobby = True
 score_list = []
 angle = 0
-delta = 2*math.pi / (size)
+delta = 2 * math.pi / (size)
 input_queue = Queue(maxsize = 0)
 
 def sock_recv(socket, queue):
@@ -175,7 +175,7 @@ while True:
                 pygame.quit()
             if event.type == pygame.MOUSEBUTTONDOWN:
 
-                ##clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
+                clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
                 
                 pos = pygame.mouse.get_pos()
                 image_id = personal_card.collide(pos)
@@ -219,7 +219,8 @@ while True:
                     screen.fill((0, 0, 0))
     print("gameEnd", user)
     screen.fill((0, 0, 0))
-    replay_button = Button(screen, (350, 250), (700, 200), "Again?", (250, 0, 0), (250, 250, 0), False)
+    scoreBoard(screen, (50, 50), (1200, 500), score_list, user)
+    replay_button = Button(screen, (50, 575), (1200, 100), "Again?", (250, 0, 0), (0, 0, 30), False)
     replay_button.draw()
     pygame.display.update()
     replay = True
