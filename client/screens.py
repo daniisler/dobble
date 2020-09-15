@@ -20,8 +20,6 @@ class Button:
         self.font_size = font_size
 
     def draw(self):
-        print("draw")
-        print(self.rect)
         pygame.draw.rect(self.screen, (self.active_color if self.active else self.passive_color), self.rect)
         pygame.draw.rect(self.screen, (255, 255, 255), self.rect, 1)
         TextSurf, TextRect = text_objects(self.text, pygame.font.Font('freesansbold.ttf', self.font_size))
@@ -31,10 +29,8 @@ class Button:
     def handle_event(self,event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             pos = event.pos
-            print(self.rect, pos)
             if self.rect.collidepoint(pos):
-                self.active = True
-                print("button gedrückt")
+                self.active = not self.active
 
 
 def scoreboard(screen, pos, size, score, userId):

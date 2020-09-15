@@ -11,7 +11,7 @@ import time
 pygame.init()
 ip = "localhost"
 #ip = "172.20.10.7"
-port = 5774
+port = 5770
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def dec_cardstack(enc_message):
@@ -148,27 +148,40 @@ while True:
     do_penalty = False
     ready_button.draw()
     pygame.display.update()
-    send_ready = False
+    countdown_start = False
+    sent_ready = False
     while lobby:
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
                 clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
                 clientSocket.close()
                 pygame.quit() 
+            
             ready_button.handle_event(event)
-        if not input_queue.empty(): 
+
+            if not countdown_start:
+                if ready_button.active and not sent_ready:
+                    clientSocket.send(("READY|{}".format(str(user))).encode("utf-8"))
+                    sent_ready = True
+                
+                elif not ready_button.active and sent_ready:
+                    clientSocket.send(("NOTREADY|{}".format(str(user))).encode("utf-8"))
+                    sent_ready = False
+
+                ready_button.draw()
+                pygame.display.update()
+
+        if not input_queue.empty():
             msg = input_queue.get().decode("utf-8")
             decode_message(msg)
             if timer == 0:
                 ready_button.draw()
             else:
+                countdown_start = True
                 countdown(screen, (525, 175), (350, 350), timer)
             pygame.display.update()
-        if ready_button.active and not send_ready:
-            clientSocket.send(("READY|{}".format(str(user))).encode("utf-8"))
-            send_ready = True
-            ready_button.draw()
-            pygame.display.update()
+        
 
     screen.fill((0,0,0))
     while game:

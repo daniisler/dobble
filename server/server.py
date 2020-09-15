@@ -90,7 +90,7 @@ def fanoplane(size):
 num_players = 1
 ip = "localhost"
 #ip = "172.20.10.7"
-port = 5774
+port = 5770
 input_queue = Queue(maxsize = 0)
 output_queu = Queue(maxsize = 0)
 
@@ -122,7 +122,6 @@ while True:
     cards = fanoplane(size)
     user_ready = []
     Thread(target = listen, args = [serverSocket, newplayer_queue]).start()
-    print(players)
     while loading:
                             
         if not newplayer_queue.empty():
@@ -139,8 +138,11 @@ while True:
             print(msg)
             if msg_split[0] == "READY":
                 user_ready.append(int(msg_split[1]))
+            
+            elif msg_split[0] == "NOTREADY":
+                user_ready.remove(int(msg_split[1]))
 
-            if msg_split[0] == "QUIT":
+            elif msg_split[0] == "QUIT":
                 print("Player" + str(actor) + " has disconnected")
                 players.remove(players[actor])
                 for i in range(len(players)):
