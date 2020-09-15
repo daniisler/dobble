@@ -88,8 +88,9 @@ def fanoplane(size):
 """
 
 num_players = 1
-ip = "192.168.43.109"
-port = 5771
+ip = "localhost"
+#ip = "172.20.10.7"
+port = 5774
 input_queue = Queue(maxsize = 0)
 output_queu = Queue(maxsize = 0)
 
@@ -123,9 +124,11 @@ while True:
     Thread(target = listen, args = [serverSocket, newplayer_queue]).start()
     print(players)
     while loading:
+                            
         if not newplayer_queue.empty():
             connection = newplayer_queue.get()
             connection.send(("$USERID|" + str(len(players))).encode("utf-8"))
+            print("Player " + str(len(players)) + " has connected")
             players.append(connection)
             Thread(target = recv_from, args = [connection, input_queue]).start()
 
@@ -136,6 +139,13 @@ while True:
             print(msg)
             if msg_split[0] == "READY":
                 user_ready.append(int(msg_split[1]))
+
+            if msg_split[0] == "QUIT":
+                print("Player" + str(actor) + " has disconnected")
+                players.remove(players[actor])
+                for i in range(len(players)):
+                    players[i].send(("$USERID|" + str(i)).encode("utf-8"))
+
             if len(user_ready) == len(players):
 
                 for card in cards:
@@ -193,6 +203,9 @@ while True:
                     msg_won = "$END|" + str(actor)
                     for player in players:
                         player.send(msg_won.encode("utf-8"))
+            if msg_split[0] == "QUIT":
+                print("Player" + str(actor) + " has disconnected")
+                players.remove(players[actor])
 
 
 
