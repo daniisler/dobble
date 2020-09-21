@@ -1,2 +1,3 @@
 .gitignore
 .vscode
+client/__pycache__
