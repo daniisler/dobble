@@ -9,8 +9,8 @@ from screens import *
 import time
 
 pygame.init()
-ip = "192.168.43.109"
-port = 5771
+ip = "localhost"
+port = 5772
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def dec_cardstack(enc_message):
