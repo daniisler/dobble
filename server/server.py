@@ -90,7 +90,7 @@ def fanoplane(size):
 num_players = 1
 ip = "localhost"
 #ip = "172.20.10.7"
-port = 5770
+port = 8000
 input_queue = Queue(maxsize = 0)
 output_queu = Queue(maxsize = 0)
 
