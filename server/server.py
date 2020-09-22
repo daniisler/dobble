@@ -4,6 +4,7 @@ from queue import Queue
 import random
 import time
 import os
+#from datenbank import *
 
 
 size = 7
@@ -86,10 +87,14 @@ def fanoplane(size):
 => ready                READY|userid
 
 """
-
+"""
+users_db = DB("users",["id","Ipv4","name","password"])
+game_db = DB("games",["gameId","player_won","time"])
+users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
+"""
 num_players = 1
 ip = "localhost"
-#ip = "172.20.10.7"
+ip = "10.0.2.15"
 port = 8000
 input_queue = Queue(maxsize = 0)
 output_queu = Queue(maxsize = 0)
@@ -106,6 +111,10 @@ def listen(socket, queue):
 
         socket.listen(5)
         connection, address = serverSocket.accept()
+
+        # users_in_db = users_db.query("SELECT * FROM user_table WHERE 'id' = ?", str(address[0]))
+        # if len(users_in_db) == 0:
+        #     game_db.inser_data("games",[str(address[0])])
         queue.put(connection)
 
 def recv_from(socket, queue):
