@@ -12,7 +12,7 @@ import sys
 pygame.init()
 ip = "localhost"
 ip = "10.0.2.15"
-port = 8000
+port = 8001
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def dec_cardstack(enc_message):
@@ -58,6 +58,7 @@ timer = 0
 go = False
 lobby = True
 score_list = []
+user_list = []
 angle = 0
 delta = 2 * math.pi / (size)
 input_queue = Queue(maxsize = 0)
@@ -68,7 +69,7 @@ def sock_recv(socket, queue):
         queue.put(msg)
 
 def recv_message(message):
-    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer
+    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer, user_list
     split_message = message.split("|")
     if split_message[0] == "CARDSTACK":
         cardlist = dec_cardstack(split_message[1])
@@ -121,7 +122,11 @@ def recv_message(message):
     
     elif split_message[0] == "COUNTDOWN":
         timer = split_message[1]
-        
+
+    elif split_message[0] == "JOIN":
+        user_list.append(split_message[1])
+        readyBoard(screen, (575, 625), (250, 50), user_list, user)
+        pygame.display.update()
 
 def decode_message(msg):
     if "$" in msg:

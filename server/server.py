@@ -84,7 +84,9 @@ def fanoplane(size):
 => new active Card      ACTIVCARD|picturelist|list_of_playerscore
 => end                  END|winner
 => countdown            COUNTDOWN|second
-=> ready                READY|userid
+=> ready                READY|userid # Goes from user to server
+=> join                 JOIN|userid
+=> sendready            READY|userid # Goes from server to user
 
 """
 """
@@ -95,9 +97,8 @@ users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
 num_players = 1
 ip = "localhost"
 ip = "10.0.2.15"
-port = 8000
+port = 8001
 input_queue = Queue(maxsize = 0)
-output_queu = Queue(maxsize = 0)
 
 newplayer_queue = Queue(maxsize = 0)
 
@@ -138,6 +139,9 @@ while True:
             connection.send(("$USERID|" + str(len(players))).encode("utf-8"))
             print("Player " + str(len(players)) + " has connected")
             players.append(connection)
+            for player in players:
+                print("$JOIN" + str(len(players) - 1))
+                player.send(("$JOIN|" + str(len(players) - 1)).encode("utf-8"))
             Thread(target = recv_from, args = [connection, input_queue]).start()
 
         if not input_queue.empty():
