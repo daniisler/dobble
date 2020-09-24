@@ -94,7 +94,7 @@ users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
 """
 num_players = 1
 ip = "localhost"
-ip = "10.0.2.15"
+#ip = "10.0.2.15"
 port = 8000
 input_queue = Queue(maxsize = 0)
 output_queu = Queue(maxsize = 0)

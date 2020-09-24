@@ -11,7 +11,7 @@ import sys
 
 pygame.init()
 ip = "localhost"
-ip = "10.0.2.15"
+#ip = "10.0.2.15"
 port = 8000
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
