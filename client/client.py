@@ -8,11 +8,11 @@ import random
 from screens import *
 import time
 import sys
-
+from inputbox import InputBox
 pygame.init()
 ip = "localhost"
 ip = "10.0.2.15"
-port = 8000
+port = 8002
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def dec_cardstack(enc_message):
@@ -62,11 +62,12 @@ user = None
 timer = 0
 go = False
 lobby = True
+loggedIn = False
+send_request = False
 score_list = []
 angle = 0
 delta = 2 * math.pi / (size)
 input_queue = Queue(maxsize = 0)
-
 
 def sock_recv(socket, queue):
     while True:
@@ -74,7 +75,7 @@ def sock_recv(socket, queue):
         queue.put(msg)
 
 def recv_message(message):
-    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer
+    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer,loggedIn,send_request,login_button,register_button
     split_message = message.split("|")
     if split_message[0] == "CARDSTACK":
         cardlist = dec_cardstack(split_message[1])
@@ -124,11 +125,20 @@ def recv_message(message):
     
     elif split_message[0] == "USERID":
         user = split_message[1]
-        mode = input("do you want to register or login, 0 = register, 1 = login")
-        modes = {"0":"REGISTER","1":"LOGIN"}
-        username = input("username:")
-        password = input("password")
-        clientSocket.send((modes[mode]+"|"+user+"|"+username+"|"+password).encode("utf-8"))
+
+    
+    elif split_message[0] == "BOOLEAN":
+        if int(split_message[1]):
+            loggedIn = True
+            print("true")
+        if int(split_message[1]) == 0:
+            send_request = False
+            register_button.active = False
+            login_button.active = False
+            
+            
+            print("false")
+
     elif split_message[0] == "COUNTDOWN":
         timer = split_message[1]
         
@@ -150,10 +160,51 @@ cards_obj = []
 
 Thread(target = sock_recv, args = [clientSocket,input_queue]).start()
 screen = pygame.display.set_mode((1400, 700))
+pygame.draw.rect(screen, (0, 0, 30), pygame.Rect(550, 100, 300, 400 ), 0)
+pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(550, 100, 300, 400), 1)
+input_username = InputBox(600, 300, 200, 40, defaultText="username")
+input_password = InputBox(600, 350, 200, 40, defaultText="password")
+login_button = Button(screen,(100, 575), (575, 100), "Login", (250, 0, 0), (0, 0, 30), False, 36)
+register_button = Button(screen, (725, 575), (575, 100), "Register", (250, 0, 0), (0, 0, 30), False, 36)
+input_boxes = [input_username,input_password]
+startScreen(screen,(100, 50), (1200, 500),input_boxes,[login_button,register_button])
 
+while not loggedIn:
+    for event in pygame.event.get():
 
+        if event.type == pygame.QUIT:
+            clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
+            clientSocket.close()
+            pygame.quit() 
+            sys.exit()
+        for box in input_boxes:
+            box.handle_event(event)
 
-while True:
+        login_button.handle_event(event)
+        register_button.handle_event(event)
+
+    for box in input_boxes:
+        box.update()
+    startScreen(screen,(100, 50), (1200, 500),input_boxes,[login_button,register_button])
+
+    if not input_queue.empty():
+        msg = input_queue.get().decode("utf-8")
+        decode_message(msg)
+
+    if login_button.active and not send_request:
+        print(f"login with: username={input_username.text}, password={input_password.text}")
+        clientSocket.send((f"LOGIN|{user}|{input_username.text}|{input_password.text}").encode("utf-8"))
+        send_request = True
+
+    elif register_button.active and not send_request:
+        print(f"register with: username={input_username.text}, password={input_password.text}")
+        clientSocket.send((f"REGISTER|{user}|{input_username.text}|{input_password.text}").encode("utf-8"))
+        send_request = True
+
+    pygame.display.flip()
+
+screen.fill((0,0,0))
+while loggedIn:
     ready_button = Button(screen, (350, 250), (700, 200), "Ready?", (250, 0, 0), (150, 150, 200), False, 180)
     penalty_queue = Queue(maxsize = 0)
     do_penalty = False
@@ -173,7 +224,7 @@ while True:
             ready_button.handle_event(event)
 
             if not countdown_start:
-                if ready_button.active and not sent_ready:
+                if ready_button.active and not sent_ready and loggedIn:
                     clientSocket.send(("READY|{}".format(str(user))).encode("utf-8"))
                     sent_ready = True
                 

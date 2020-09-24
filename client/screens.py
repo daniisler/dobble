@@ -1,5 +1,5 @@
 import pygame
-
+from inputbox import InputBox
 pygame.init()
 
 def text_objects(text, font, color = (255, 255, 255)):
@@ -75,4 +75,19 @@ def scoreBoard(screen, pos, size, score, userId):
         TextSurf, TextRect = text_objects("Player " + str(player) + ": " + str(score[player]), pygame.font.Font('freesansbold.ttf', 36), (250, 0, 0) if str(userId) == str(player) else (255, 255, 255))
         TextRect.center = ((posx + 0.5 * sizex, pos[1] + 0.9 * size[1]))
         screen.blit(TextSurf, TextRect)
- 
+
+def startScreen(screen,pos,size,input_boxes,buttons):
+    pygame.draw.rect(screen, (0, 0, 30), pygame.Rect(pos[0], pos[1], size[0], size[1]), 0)
+    pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(pos[0], pos[1], size[0], size[1]), 1)
+
+    pygame.draw.rect(screen, (0, 0, 30), pygame.Rect(int(pos[0]+size[0]*0.3), int(pos[1]+size[1]*0.2), int(size[0]*0.4), int(size[1]*0.6)), 0)
+    pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(int(pos[0]+size[0]*0.3), int(pos[1]+size[1]*0.2), int(size[0]*0.4), int(size[1]*0.6)), 1)
+    TextSurf, TextRect = text_objects("DOBBLE",font=pygame.font.Font('freesansbold.ttf', 62))
+    TextRect.center = ((pos[0]+size[0]*0.5 , int(pos[1]+size[1]*0.35)))
+    screen.blit(TextSurf, TextRect)
+
+    for input_box in input_boxes:
+        input_box.draw(screen)
+
+    for button in buttons:
+        button.draw()

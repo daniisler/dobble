@@ -81,6 +81,7 @@ def fanoplane(size):
 "$" between objects
 => REGISTER             REGISTER|userid|username|password
 => LOGIN                LOGIN|userid|username|password
+=> BOOLEAN              BOOLEAN|(1/0)
 => Start                START|.
 => Setup                USERID|userid
 => Card Stack           CARDSTACK|cardstack
@@ -98,7 +99,7 @@ users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
 num_players = 1
 ip = "localhost"
 ip = "10.0.2.15"
-port = 8000
+port = 8002
 input_queue = Queue(maxsize = 0)
 output_queu = Queue(maxsize = 0)
 
@@ -124,6 +125,7 @@ def recv_from(socket, queue):
     
     while True:
         msg = socket.recv(1024)
+        print("recv msg",msg)
         queue.put(msg)
 
 
@@ -131,6 +133,7 @@ players = []
 player_dict = defaultdict() #dictionary with userid: status => status == True if logged in /registered, status==False if not logged in yet
 dobble_db = DB("DOBBLE")
 dobble_db.addTable("users","username,password")
+dobble_db.print("users")
 while True:
     loading = True
     game = True
@@ -161,22 +164,31 @@ while True:
                 user_id = msg_split[1]
                 username = msg_split[2]
                 password = msg_split[3]
+                print("login",user_id,username,password)
                 result = dobble_db.querry(f"SELECT * from users WHERE username == '{username}' and password == '{password}'")
+                print(result)
                 if len(result) == 1 : 
                     print("login!")
-                    defaultdict[int(user_id)] = True
+                    player_dict[user_id] = True
+                    players[int(user_id)].send(("$BOOLEAN|1").encode("utf-8"))
+                else:
+                    players[int(user_id)].send(("$BOOLEAN|0").encode("utf-8"))
+                    print("wrong")
 
             elif msg_split[0] == "REGISTER":
                 user_id = msg_split[1]
                 username = msg_split[2]
                 password = msg_split[3]
+                print("register",user_id,username,password)
                 if len(dobble_db.querry(f"SELECT * FROM users WHERE username == '{username}'")) == 0 :
                     dobble_db.write("users","user_id, username, password",f"'{username}', '{password}'")
                     print("REGISTER")
+                    player_dict[user_id] = True
                     dobble_db.print("users")
-                    defaultdict[int(user_id)] = True
+                    print(user_id)
+                    players[int(user_id)].send(("$BOOLEAN|1").encode("utf-8"))
                 else:
-                    print("user already exists")
+                    players[int(user_id)].send(("$BOOLEAN|0").encode("utf-8"))
 
             elif msg_split[0] == "QUIT":
                 actor = int(msg_split[1])
