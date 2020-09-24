@@ -216,7 +216,7 @@ while True:
                 for i in range(len(players)):
                     players[i].send(("$USERID|" + str(i)).encode("utf-8"))
 
-            if len(user_ready) == len(players):
+            if len(user_ready) == len(players) and len(players) != 0:
 
                 for card in cards:
                     random.shuffle(card)
