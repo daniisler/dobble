@@ -98,7 +98,7 @@ users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
 """
 num_players = 1
 ip = "localhost"
-ip = "10.0.2.15"
+# ip = "10.0.2.15"
 port = 8002
 input_queue = Queue(maxsize = 0)
 output_queu = Queue(maxsize = 0)
@@ -130,9 +130,14 @@ def recv_from(socket, queue):
 
 
 players = []
-player_dict = defaultdict() #dictionary with userid: status => status == True if logged in /registered, status==False if not logged in yet
+player_dict = defaultdict() 
+unify_id_name = defaultdict()
 dobble_db = DB("DOBBLE")
-dobble_db.addTable("users","username,password")
+dobble_db.delete("userIDs")
+dobble_db.delete("users")
+dobble_db.addTable("users","user_id,username,password")
+
+# hex(random.randint(0,99999999))
 dobble_db.print("users")
 while True:
     loading = True
@@ -171,6 +176,7 @@ while True:
                     print("login!")
                     player_dict[user_id] = True
                     players[int(user_id)].send(("$BOOLEAN|1").encode("utf-8"))
+                    unify_id_name[result[0]] = result[1]
                 else:
                     players[int(user_id)].send(("$BOOLEAN|0").encode("utf-8"))
                     print("wrong")
@@ -181,11 +187,16 @@ while True:
                 password = msg_split[3]
                 print("register",user_id,username,password)
                 if len(dobble_db.querry(f"SELECT * FROM users WHERE username == '{username}'")) == 0 :
-                    dobble_db.write("users","user_id, username, password",f"'{username}', '{password}'")
+                    unify_id = hex(random.randint(0,999999))
+                    while len(dobble_db.querry(f"SELECT * from users WHERE user_id = '{unify_id}'")) != 0:
+                        unify_id = hex(random.randint(0,999999))
+                    dobble_db.write("users","user_id, username, password",f"'{unify_id}','{username}', '{password}'")
                     print("REGISTER")
-                    player_dict[user_id] = True
+                    player_dict[unify_id] = players[int(user_id)]
+                    unify_id_name[unify_id] = username
                     dobble_db.print("users")
                     print(user_id)
+                    print(player_dict)
                     players[int(user_id)].send(("$BOOLEAN|1").encode("utf-8"))
                 else:
                     players[int(user_id)].send(("$BOOLEAN|0").encode("utf-8"))
@@ -239,6 +250,7 @@ while True:
             msg = input_queue.get().decode("utf-8")
             msg_split = msg.split("|")
             if msg_split[0] == "CARDPLAYED":
+                dobble_db.print("users")
                 actor = int(msg_split[1])
                 score[actor] += 1
                 active_card = player_cardlist[actor].pop()
