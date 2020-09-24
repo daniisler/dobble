@@ -86,7 +86,7 @@ def fanoplane(size):
 => Setup                USERID|userid
 => Card Stack           CARDSTACK|cardstack
 => new active Card      ACTIVCARD|picturelist|list_of_playerscore
-=> end                  END|winner
+=> end                  END|winner|
 => countdown            COUNTDOWN|second
 => ready                READY|userid # Goes from user to server
 => join                 JOIN|userid
@@ -249,6 +249,7 @@ while True:
                 for player in players:
                     player.send("$START|.".encode("utf-8"))
                 loading = False
+                print([(key,value) for key,value in unify_id_name.items()])
 
 
     score = [0] * len(players)
@@ -271,7 +272,7 @@ while True:
                 if len(player_cardlist[actor]) == 1:
                     game = False
                     print("player won!")
-                    msg_won = "$END|" + str(actor)
+                    msg_won = "$END|" + str(actor)+"|"+":".join([names for names in unify_id_name.values()])
                     for player in players:
                         player.send(msg_won.encode("utf-8"))
             if msg_split[0] == "QUIT":

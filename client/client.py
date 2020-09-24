@@ -47,7 +47,7 @@ mode = "LOGIN"
 clientSocket.connect((ip, port))
 
 print("connected")
-
+player_list = None
 active_card = None
 personal_card = None
 game = False
@@ -68,7 +68,7 @@ def sock_recv(socket, queue):
         queue.put(msg)
 
 def recv_message(message):
-    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer,loggedIn,send_request,login_button,register_button
+    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer,loggedIn,send_request,login_button,register_button,player_list
     split_message = message.split("|")
     if split_message[0] == "CARDSTACK":
         cardlist = dec_cardstack(split_message[1])
@@ -109,6 +109,7 @@ def recv_message(message):
 
     elif split_message[0] == "END":
         end(split_message[1])
+        player_list = split_message[2].split(":")
         game = False
 
     elif split_message[0] == "START":
@@ -163,7 +164,7 @@ screen = pygame.display.set_mode((1400, 700))
 pygame.draw.rect(screen, (0, 0, 30), pygame.Rect(550, 100, 300, 400 ), 0)
 pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(550, 100, 300, 400), 1)
 input_username = InputBox(600, 300, 200, 40, defaultText="username")
-input_password = InputBox(600, 350, 200, 40, defaultText="password")
+input_password = InputBox(600, 350, 200, 40, defaultText="password",password=True)
 login_button = Button(screen,(100, 575), (575, 100), "Login", (250, 0, 0), (0, 0, 30), False, 36)
 register_button = Button(screen, (725, 575), (575, 100), "Register", (250, 0, 0), (0, 0, 30), False, 36)
 input_boxes = [input_username,input_password]
@@ -263,7 +264,7 @@ while loggedIn:
             if event.type == pygame.MOUSEBUTTONDOWN:
                  
                 # -----------------------------------------------
-                # clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
+                clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
                 # -----------------------------------------------
 
                 pos = pygame.mouse.get_pos()
@@ -308,7 +309,7 @@ while loggedIn:
                     screen.fill((0, 0, 0))
     print("gameEnd", user)
     screen.fill((0, 0, 0))
-    scoreBoard(screen, (100, 50), (1200, 500), score_list, user)
+    scoreBoard(screen, (100, 50), (1200, 500), score_list, user, player_list)
     replay_button = Button(screen, (100, 575), (575, 100), "Again?", (250, 0, 0), (0, 0, 30), False, 80)
     quit_button = Button(screen, (725, 575), (575, 100), "Quit?", (250, 0, 0), (0, 0, 30), False, 80)
     replay_button.draw()

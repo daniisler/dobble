@@ -8,13 +8,14 @@ FONT = pygame.font.Font(None, 32)
 
 class InputBox:
 
-    def __init__(self, x, y, w, h, text='',defaultText=''):
+    def __init__(self, x, y, w, h, text='',defaultText='',password=False):
         self.rect = pygame.Rect(x, y, w, h)
         self.color = COLOR_INACTIVE
         self.text = defaultText
         self.txt_surface = FONT.render(self.text, True, self.color)
         self.active = False
         self.defaultText = defaultText
+        self.password=password
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             # If the user clicked on the input_box rect.
@@ -36,7 +37,7 @@ class InputBox:
                 else:
                     self.text += event.unicode
                 # Re-render the text.
-                self.txt_surface = FONT.render(self.text, True, self.color)
+                self.txt_surface = FONT.render((self.text if not self.password else "*"*len(self.text)), True, self.color)
 
     def update(self):
         # Resize the box if the text is too long.
