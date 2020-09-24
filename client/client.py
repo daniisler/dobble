@@ -139,7 +139,6 @@ def recv_message(message):
 
     elif split_message[0] == "JOIN":
         players = list((range(int(split_message[1]) + 1)))
-        pygame.display.update()
 
     elif split_message[0] == "READY":
         ready_user = split_message[2].split(":")
@@ -207,6 +206,7 @@ while not loggedIn:
     pygame.display.flip()
 
 screen.fill((0,0,0))
+readyBoard(screen, (575, 625), (250, 50), players, user, ready_user)
 while loggedIn:
     ready_button = Button(screen, (350, 250), (700, 200), "Ready?", (250, 0, 0), (150, 150, 200), False, 180)
     penalty_queue = Queue(maxsize = 0)
@@ -244,7 +244,6 @@ while loggedIn:
             decode_message(msg)
             print("playeres", players, ready_user)
             readyBoard(screen, (575, 625), (250, 50), players, user, ready_user)
-
 
 
 
