@@ -50,13 +50,13 @@ class DB:
             print(row)
 
         
-dobble_db = DB()
-dobble_db.open("DOBBLE")
-# dobble_db.addTable("users","id, ipv4, user_name")
-# dobble_db.write("users","id, ipv4, user_name","'5', 'name4', 'figa7'")
+# dobble_db = DB()
+# dobble_db.open("DOBBLE")
+# # dobble_db.addTable("users","id, ipv4, user_name")
+# # dobble_db.write("users","id, ipv4, user_name","'5', 'name4', 'figa7'")
 
-print(dobble_db.querry("SELECT * FROM users WHERE id == '5'"))
-dobble_db.print("users")
+# print(dobble_db.querry("SELECT * FROM users WHERE id == '5'"))
+# dobble_db.print("users")
 
 
 

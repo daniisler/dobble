@@ -48,12 +48,17 @@ for i in range(1, size * size + (size + 2)):
     images.append(pygame.image.load("./client/images/im_ ({}).png".format(str(i))))
     images[-1] = pygame.transform.scale(images[-1], (150,150))
 
+username = "testuser"
+password = "testpassword"
+mode = "LOGIN"
 clientSocket.connect((ip, port))
+
 print("connected")
+
 active_card = None
 personal_card = None
 game = False
-user = 0
+user = None
 timer = 0
 go = False
 lobby = True
@@ -61,6 +66,7 @@ score_list = []
 angle = 0
 delta = 2 * math.pi / (size)
 input_queue = Queue(maxsize = 0)
+
 
 def sock_recv(socket, queue):
     while True:
@@ -118,7 +124,11 @@ def recv_message(message):
     
     elif split_message[0] == "USERID":
         user = split_message[1]
-    
+        mode = input("do you want to register or login, 0 = register, 1 = login")
+        modes = {"0":"REGISTER","1":"LOGIN"}
+        username = input("username:")
+        password = input("password")
+        clientSocket.send((modes[mode]+"|"+user+"|"+username+"|"+password).encode("utf-8"))
     elif split_message[0] == "COUNTDOWN":
         timer = split_message[1]
         
@@ -177,6 +187,10 @@ while True:
         if not input_queue.empty():
             msg = input_queue.get().decode("utf-8")
             decode_message(msg)
+
+
+
+
             if timer == 0:
                 ready_button.draw()
             else:

@@ -4,7 +4,9 @@ from queue import Queue
 import random
 import time
 import os
-#from datenbank import *
+import random
+from collections import defaultdict
+from datenbank import *
 
 
 size = 7
@@ -77,7 +79,8 @@ def fanoplane(size):
 |catagory|Info|
 
 "$" between objects
-
+=> REGISTER             REGISTER|userid|username|password
+=> LOGIN                LOGIN|userid|username|password
 => Start                START|.
 => Setup                USERID|userid
 => Card Stack           CARDSTACK|cardstack
@@ -125,6 +128,9 @@ def recv_from(socket, queue):
 
 
 players = []
+player_dict = defaultdict() #dictionary with userid: status => status == True if logged in /registered, status==False if not logged in yet
+dobble_db = DB("DOBBLE")
+dobble_db.addTable("users","username,password")
 while True:
     loading = True
     game = True
@@ -150,6 +156,27 @@ while True:
             
             elif msg_split[0] == "NOTREADY":
                 user_ready.remove(int(msg_split[1]))
+            
+            elif msg_split[0] == "LOGIN":
+                user_id = msg_split[1]
+                username = msg_split[2]
+                password = msg_split[3]
+                result = dobble_db.querry(f"SELECT * from users WHERE username == '{username}' and password == '{password}'")
+                if len(result) == 1 : 
+                    print("login!")
+                    defaultdict[int(user_id)] = True
+
+            elif msg_split[0] == "REGISTER":
+                user_id = msg_split[1]
+                username = msg_split[2]
+                password = msg_split[3]
+                if len(dobble_db.querry(f"SELECT * FROM users WHERE username == '{username}'")) == 0 :
+                    dobble_db.write("users","user_id, username, password",f"'{username}', '{password}'")
+                    print("REGISTER")
+                    dobble_db.print("users")
+                    defaultdict[int(user_id)] = True
+                else:
+                    print("user already exists")
 
             elif msg_split[0] == "QUIT":
                 actor = int(msg_split[1])
