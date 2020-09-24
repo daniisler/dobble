@@ -94,8 +94,8 @@ users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
 """
 num_players = 1
 ip = "localhost"
-ip = "192.168.43.109"
-port = 5771
+ip = "10.0.2.15"
+port = 8000
 input_queue = Queue(maxsize = 0)
 output_queu = Queue(maxsize = 0)
 
@@ -152,7 +152,8 @@ while True:
                 user_ready.remove(int(msg_split[1]))
 
             elif msg_split[0] == "QUIT":
-                print("Player" + str(actor) + " has disconnected")
+                actor = int(msg_split[1])
+                print("Player " + str(actor) + " has disconnected")
                 players.remove(players[actor])
                 for i in range(len(players)):
                     players[i].send(("$USERID|" + str(i)).encode("utf-8"))
@@ -215,7 +216,8 @@ while True:
                     for player in players:
                         player.send(msg_won.encode("utf-8"))
             if msg_split[0] == "QUIT":
-                print("Player" + str(actor) + " has disconnected")
+                actor = int(msg_split[1])
+                print("Player " + str(actor) + " has disconnected")
                 players.remove(players[actor])
 
 

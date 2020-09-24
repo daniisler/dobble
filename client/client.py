@@ -7,11 +7,12 @@ import math
 import random
 from screens import *
 import time
+import sys
 
 pygame.init()
 ip = "localhost"
-ip = "192.168.43.109"
-port = 5771
+ip = "10.0.2.15"
+port = 8000
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def dec_cardstack(enc_message):
@@ -157,7 +158,8 @@ while True:
                 clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
                 clientSocket.close()
                 pygame.quit() 
-            
+                sys.exit()
+
             ready_button.handle_event(event)
 
             if not countdown_start:
@@ -186,13 +188,16 @@ while True:
     screen.fill((0,0,0))
     while game:
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
                 clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
                 clientSocket.close()
                 pygame.quit()
+                sys.exit()
+
             if event.type == pygame.MOUSEBUTTONDOWN:
 
-                # clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
+                clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
                 
                 pos = pygame.mouse.get_pos()
                 image_id = personal_card.collide(pos)
@@ -245,18 +250,25 @@ while True:
     replay = True
     while replay:
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
                 clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
                 clientSocket.close()
                 pygame.quit()
+                sys.exit()
+                
             replay_button.handle_event(event)
             quit_button.handle_event(event)
+
         if replay_button.active:
             replay = False
+
         if quit_button.active:
             clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
             clientSocket.close()
             pygame.quit()
+            sys.exit()
+
     screen.fill((0, 0, 0))
     active_card = None
     personal_card = None

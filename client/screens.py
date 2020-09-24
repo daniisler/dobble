@@ -72,7 +72,7 @@ def scoreBoard(screen, pos, size, score, userId):
         sizey = score[player] * 0.7 * size[1] / max_score
         posy = pos[1] + 0.8 * size[1] - sizey
         pygame.draw.rect(screen, (255 - 255 * score[player] // max_score, 255 * score[player] // max_score, 0), pygame.Rect(posx, posy, sizex, sizey), 0)
-        TextSurf, TextRect = text_objects("Player " + str(player) + ": " + str(score[player]), pygame.font.Font('freesansbold.ttf', 36), (250, 0, 0) if userId == player else (255, 255, 255))
+        TextSurf, TextRect = text_objects("Player " + str(player) + ": " + str(score[player]), pygame.font.Font('freesansbold.ttf', 36), (250, 0, 0) if str(userId) == str(player) else (255, 255, 255))
         TextRect.center = ((posx + 0.5 * sizex, pos[1] + 0.9 * size[1]))
         screen.blit(TextSurf, TextRect)
  
