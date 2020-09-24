@@ -134,8 +134,8 @@ players = []
 player_dict = defaultdict() 
 unify_id_name = defaultdict()
 dobble_db = DB("DOBBLE")
-dobble_db.delete("userIDs")
-dobble_db.delete("users")
+# dobble_db.delete("userIDs")
+# dobble_db.delete("users")
 dobble_db.addTable("users","user_id,username,password")
 
 # hex(random.randint(0,99999999))
@@ -182,7 +182,7 @@ while True:
                     print("login!")
                     player_dict[user_id] = True
                     players[int(user_id)].send(("$BOOLEAN|1").encode("utf-8"))
-                    unify_id_name[result[0]] = result[1]
+                    unify_id_name[result[0][0]] = result[0][1]
                 else:
                     players[int(user_id)].send(("$BOOLEAN|0").encode("utf-8"))
                     print("wrong")
