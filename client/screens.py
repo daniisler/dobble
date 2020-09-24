@@ -36,8 +36,8 @@ class Button:
 def scoreboard(screen, pos, size, score, userId):
     num = len(score)
     place_per_user = size[0] // num
-    pygame.draw.rect(screen,(0,0,0),pygame.Rect(pos[0], pos[1], size[0], size[1]), 0)
-    pygame.draw.rect(screen,(255, 255, 255),pygame.Rect(pos[0], pos[1], size[0], size[1]), 1)
+    pygame.draw.rect(screen, (0, 0, 0), pygame.Rect(pos[0], pos[1], size[0], size[1]), 0)
+    pygame.draw.rect(screen, (255, 255, 255), pygame.Rect(pos[0], pos[1], size[0], size[1]), 1)
     for i in range(num):
         if i == int(userId):
             TextSurf, TextRect = text_objects(str(score[i]), pygame.font.Font('freesansbold.ttf', 36), (255, 0, 0))
@@ -91,3 +91,22 @@ def startScreen(screen,pos,size,input_boxes,buttons):
 
     for button in buttons:
         button.draw()
+        
+def readyBoard(screen, pos, size, players, userId, ready_users=[]):
+    print(players)
+    num = len(players)
+    place_per_user = size[0] // num
+    pygame.draw.rect(screen, (0, 0, 0),pygame.Rect(pos[0], pos[1], size[0], size[1]), 0)
+    pygame.draw.rect(screen, (255, 255, 255),pygame.Rect(pos[0], pos[1], size[0], size[1]), 1)
+    for player in players:
+        if str(player) == userId:
+            TextSurf, TextRect = text_objects(str(player), pygame.font.Font('freesansbold.ttf', 36), (255, 0, 0))
+        elif str(player) in ready_users:
+            TextSurf, TextRect = text_objects(str(player), pygame.font.Font('freesansbold.ttf', 36), (0, 255, 0))
+        else:
+            TextSurf, TextRect = text_objects(str(player), pygame.font.Font('freesansbold.ttf', 36))
+        posx = pos[0] + place_per_user * int(player) + place_per_user // 2
+        posy = pos[1] + size[1] // 2
+        TextRect.center = ((posx, posy))
+        screen.blit(TextSurf, TextRect)
+ 

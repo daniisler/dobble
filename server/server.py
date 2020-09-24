@@ -88,7 +88,9 @@ def fanoplane(size):
 => new active Card      ACTIVCARD|picturelist|list_of_playerscore
 => end                  END|winner
 => countdown            COUNTDOWN|second
-=> ready                READY|userid
+=> ready                READY|userid # Goes from user to server
+=> join                 JOIN|userid
+=> sendready            READY|user_num|userid # Goes from server to user
 
 """
 """
@@ -98,10 +100,9 @@ users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
 """
 num_players = 1
 ip = "localhost"
-ip = "10.0.2.15"
-port = 8002
+#ip = "10.0.2.15"
+port = 8001
 input_queue = Queue(maxsize = 0)
-output_queu = Queue(maxsize = 0)
 
 newplayer_queue = Queue(maxsize = 0)
 
@@ -147,6 +148,9 @@ while True:
             connection.send(("$USERID|" + str(len(players))).encode("utf-8"))
             print("Player " + str(len(players)) + " has connected")
             players.append(connection)
+            player_list = ""
+            for player in players:
+                player.send(("$JOIN|" + str(len(players) - 1)).encode("utf-8"))
             Thread(target = recv_from, args = [connection, input_queue]).start()
 
         if not input_queue.empty():
@@ -156,6 +160,8 @@ while True:
             print(msg)
             if msg_split[0] == "READY":
                 user_ready.append(int(msg_split[1]))
+                for player in players:
+                    player.send(("$READY|" + str(len(players)) + "|" + ":".join([str(user) for user in user_ready])).encode("utf-8"))
             
             elif msg_split[0] == "NOTREADY":
                 user_ready.remove(int(msg_split[1]))
@@ -189,6 +195,8 @@ while True:
                     players[int(user_id)].send(("$BOOLEAN|1").encode("utf-8"))
                 else:
                     players[int(user_id)].send(("$BOOLEAN|0").encode("utf-8"))
+                for player in players:
+                    player.send(("$READY|" + str(len(players)) + "|" + ":".join([str(user) for user in user_ready])).encode("utf-8"))
 
             elif msg_split[0] == "QUIT":
                 actor = int(msg_split[1])

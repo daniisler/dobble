@@ -11,8 +11,8 @@ import sys
 from inputbox import InputBox
 pygame.init()
 ip = "localhost"
-ip = "10.0.2.15"
-port = 8002
+#ip = "10.0.2.15"
+port = 8001
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def dec_cardstack(enc_message):
@@ -141,7 +141,14 @@ def recv_message(message):
 
     elif split_message[0] == "COUNTDOWN":
         timer = split_message[1]
-        
+
+    elif split_message[0] == "JOIN":
+        readyBoard(screen, (575, 625), (250, 50), list((range(int(split_message[1]) + 1))), user)
+        pygame.display.update()
+
+    elif split_message[0] == "READY":
+        ready_user = split_message[2].split(":")
+        readyBoard(screen, (575, 625), (250, 50), list((range(int(split_message[1])))), user, ready_user)
 
 def decode_message(msg):
     if "$" in msg:
