@@ -49,6 +49,17 @@ class DB:
         for row in self.cursor.execute('SELECT * FROM '+ table_name):
             print(row)
 
+    def delete(self,table_name):
+        try:
+            self.cursor.execute(f"DROP TABLE {table_name}")
+        except:
+            print("no such table")
+    def update(self,table_name,values,querry):
+        string = f"UPDATE {table_name} SET {values} WHERE {querry} "
+        print(string)
+        self.cursor.execute(string)
+        self.conn.commit()
+        print("updated")
         
 # dobble_db = DB()
 # dobble_db.open("DOBBLE")

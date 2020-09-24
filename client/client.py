@@ -14,7 +14,7 @@ ip = "localhost"
 #ip = "10.0.2.15"
 port = 8001
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
+print("go")
 def dec_cardstack(enc_message):
     enc_card_list = enc_message.split("#")
     card_list = []
