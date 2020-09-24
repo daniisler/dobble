@@ -1,6 +1,8 @@
 # Byte-compiled / optimized / DLL files
+DOBBLE
 client/__pycache__/
 server/__pycache__/
+server/__pycache__/datenbank.cpython-38.pyc
 *.py[cod]
 *$py.class
 .vscode

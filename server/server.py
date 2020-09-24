@@ -170,6 +170,8 @@ while True:
             
             elif msg_split[0] == "NOTREADY":
                 user_ready.remove(int(msg_split[1]))
+                for player in players:
+                    player.send(("$READY|" + str(len(players)) + "|" + ":".join([str(user) for user in user_ready])).encode("utf-8"))
             
             elif msg_split[0] == "LOGIN":
                 user_id = msg_split[1]
@@ -216,7 +218,7 @@ while True:
                 for i in range(len(players)):
                     players[i].send(("$USERID|" + str(i)).encode("utf-8"))
 
-            if len(user_ready) == len(players):
+            if len(user_ready) == len(players) and len(players) != 0:
 
                 for card in cards:
                     random.shuffle(card)
