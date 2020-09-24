@@ -7,10 +7,12 @@ import math
 import random
 from screens import *
 import time
+import sys
 
 pygame.init()
 ip = "localhost"
-port = 5775
+#ip = "10.0.2.15"
+port = 8001
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 def dec_cardstack(enc_message):
@@ -57,7 +59,7 @@ go = False
 lobby = True
 score_list = []
 angle = 0
-delta = 2*math.pi / (size)
+delta = 2 * math.pi / (size)
 input_queue = Queue(maxsize = 0)
 
 def sock_recv(socket, queue):
@@ -119,7 +121,14 @@ def recv_message(message):
     
     elif split_message[0] == "COUNTDOWN":
         timer = split_message[1]
-        
+
+    elif split_message[0] == "JOIN":
+        readyBoard(screen, (575, 625), (250, 50), list((range(int(split_message[1]) + 1))), user)
+        pygame.display.update()
+
+    elif split_message[0] == "READY":
+        ready_user = split_message[2].split(":")
+        readyBoard(screen, (575, 625), (250, 50), list((range(int(split_message[1])))), user, ready_user)
 
 def decode_message(msg):
     if "$" in msg:
@@ -142,40 +151,60 @@ screen = pygame.display.set_mode((1400, 700))
 
 
 while True:
-    ready_button = Button(screen, (350, 250), (700, 200), "ready?", (250, 0, 0), (250, 250, 0), False)
+    ready_button = Button(screen, (350, 250), (700, 200), "Ready?", (250, 0, 0), (150, 150, 200), False, 180)
     penalty_queue = Queue(maxsize = 0)
     do_penalty = False
     ready_button.draw()
     pygame.display.update()
-    send_ready = False
+    countdown_start = False
+    sent_ready = False
     while lobby:
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
+                clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
+                clientSocket.close()
                 pygame.quit() 
+                sys.exit()
+
             ready_button.handle_event(event)
-        if not input_queue.empty(): 
+
+            if not countdown_start:
+                if ready_button.active and not sent_ready:
+                    clientSocket.send(("READY|{}".format(str(user))).encode("utf-8"))
+                    sent_ready = True
+                
+                elif not ready_button.active and sent_ready:
+                    clientSocket.send(("NOTREADY|{}".format(str(user))).encode("utf-8"))
+                    sent_ready = False
+
+                ready_button.draw()
+                pygame.display.update()
+
+        if not input_queue.empty():
             msg = input_queue.get().decode("utf-8")
             decode_message(msg)
             if timer == 0:
                 ready_button.draw()
             else:
+                countdown_start = True
                 countdown(screen, (525, 175), (350, 350), timer)
             pygame.display.update()
-        if ready_button.active and not send_ready:
-            print("send")
-            clientSocket.send(("READY|{}".format(str(user))).encode("utf-8"))
-            send_ready = True
-            ready_button.draw()
-            pygame.display.update()
+        
 
     screen.fill((0,0,0))
     while game:
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
+                clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
+                clientSocket.close()
                 pygame.quit()
+                sys.exit()
+
             if event.type == pygame.MOUSEBUTTONDOWN:
 
-                ##clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
+                clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
                 
                 pos = pygame.mouse.get_pos()
                 image_id = personal_card.collide(pos)
@@ -219,17 +248,35 @@ while True:
                     screen.fill((0, 0, 0))
     print("gameEnd", user)
     screen.fill((0, 0, 0))
-    replay_button = Button(screen, (350, 250), (700, 200), "Again?", (250, 0, 0), (250, 250, 0), False)
+    scoreBoard(screen, (100, 50), (1200, 500), score_list, user)
+    replay_button = Button(screen, (100, 575), (575, 100), "Again?", (250, 0, 0), (0, 0, 30), False, 80)
+    quit_button = Button(screen, (725, 575), (575, 100), "Quit?", (250, 0, 0), (0, 0, 30), False, 80)
     replay_button.draw()
+    quit_button.draw()
     pygame.display.update()
     replay = True
     while replay:
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
+                clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
+                clientSocket.close()
                 pygame.quit()
+                sys.exit()
+                
             replay_button.handle_event(event)
+            quit_button.handle_event(event)
+
         if replay_button.active:
             replay = False
+
+        if quit_button.active:
+            clientSocket.send("QUIT|{}".format(str(user)).encode("utf-8"))
+            clientSocket.close()
+            pygame.quit()
+            sys.exit()
+
+    screen.fill((0, 0, 0))
     active_card = None
     personal_card = None
     game = False

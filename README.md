@@ -1,1 +1,3 @@
 # dobble
+
+Dobble is a card game that you can play on your computer with this program. If you let it run, two cards appear on your screen. The one on the right is the same for all players. The one on the left is different for everybody. On each card there are eight images and every pair of cards has one image that matches. To play, you have to click on the specific image on the left card, which matches with one image on the card on the right side. If you succeed, the card you put shows up for every player. If you select a wrong image, you get penalized with a three-second timeout. The goal is to loose the whole card-stack as fast as possible. The player who finishes first wins the game.

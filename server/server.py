@@ -4,6 +4,7 @@ from queue import Queue
 import random
 import time
 import os
+#from datenbank import *
 
 
 size = 7
@@ -83,15 +84,21 @@ def fanoplane(size):
 => new active Card      ACTIVCARD|picturelist|list_of_playerscore
 => end                  END|winner
 => countdown            COUNTDOWN|second
-=> ready                READY|userid
+=> ready                READY|userid # Goes from user to server
+=> join                 JOIN|userid
+=> sendready            READY|user_num|userid # Goes from server to user
 
 """
-
+"""
+users_db = DB("users",["id","Ipv4","name","password"])
+game_db = DB("games",["gameId","player_won","time"])
+users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
+"""
 num_players = 1
 ip = "localhost"
-port = 5775
+#ip = "10.0.2.15"
+port = 8001
 input_queue = Queue(maxsize = 0)
-output_queu = Queue(maxsize = 0)
 
 newplayer_queue = Queue(maxsize = 0)
 
@@ -105,6 +112,10 @@ def listen(socket, queue):
 
         socket.listen(5)
         connection, address = serverSocket.accept()
+
+        # users_in_db = users_db.query("SELECT * FROM user_table WHERE 'id' = ?", str(address[0]))
+        # if len(users_in_db) == 0:
+        #     game_db.inser_data("games",[str(address[0])])
         queue.put(connection)
 
 def recv_from(socket, queue):
@@ -115,18 +126,22 @@ def recv_from(socket, queue):
 
 
 players = []
-for i in range(2):
+while True:
     loading = True
     game = True
     cards = fanoplane(size)
     user_ready = []
     Thread(target = listen, args = [serverSocket, newplayer_queue]).start()
-    print(players)
     while loading:
+                            
         if not newplayer_queue.empty():
             connection = newplayer_queue.get()
             connection.send(("$USERID|" + str(len(players))).encode("utf-8"))
+            print("Player " + str(len(players)) + " has connected")
             players.append(connection)
+            player_list = ""
+            for player in players:
+                player.send(("$JOIN|" + str(len(players) - 1)).encode("utf-8"))
             Thread(target = recv_from, args = [connection, input_queue]).start()
 
         if not input_queue.empty():
@@ -136,6 +151,21 @@ for i in range(2):
             print(msg)
             if msg_split[0] == "READY":
                 user_ready.append(int(msg_split[1]))
+                for player in players:
+                    player.send(("$READY|" + str(len(players)) + "|" + ":".join([str(user) for user in user_ready])).encode("utf-8"))
+            
+            elif msg_split[0] == "NOTREADY":
+                user_ready.remove(int(msg_split[1]))
+                for player in players:
+                    player.send(("$READY|" + str(len(players)) + "|" + ":".join([str(user) for user in user_ready])).encode("utf-8"))
+
+            elif msg_split[0] == "QUIT":
+                actor = int(msg_split[1])
+                print("Player " + str(actor) + " has disconnected")
+                players.remove(players[actor])
+                for i in range(len(players)):
+                    players[i].send(("$USERID|" + str(i)).encode("utf-8"))
+
             if len(user_ready) == len(players):
 
                 for card in cards:
@@ -193,6 +223,10 @@ for i in range(2):
                     msg_won = "$END|" + str(actor)
                     for player in players:
                         player.send(msg_won.encode("utf-8"))
+            if msg_split[0] == "QUIT":
+                actor = int(msg_split[1])
+                print("Player " + str(actor) + " has disconnected")
+                players.remove(players[actor])
 
 
 
