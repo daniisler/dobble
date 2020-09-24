@@ -28,6 +28,19 @@ def dec_activecard(enc_message):
     active_card = enc_message.split(":")
     return [int(code) for code in active_card]
 
+def card_build(card, angle = 0):
+    imageList = []
+    posList = []
+    posList.append([-75, -75])
+    imageList.append(pygame.transform.rotate(images[card[0]], random.randint(0, 360)))
+    for image_num in card[1:]:
+        angle += delta
+        posx = 225 * math.cos(angle) - 75 - 10
+        posy = 225 * math.sin(angle) - 75 - 10
+        posList.append((posx,posy))
+        imageList.append(pygame.transform.rotate(images[image_num], random.randint(0, 360)))
+    return cards.Card(posList, imageList, card)
+
 def end(enc_message):
     print("game over, player {} win".format(enc_message))
 
@@ -60,6 +73,7 @@ send_request = False
 score_list = []
 players = []
 ready_user = []
+card = []
 angle = 0
 delta = 2 * math.pi / (size)
 input_queue = Queue(maxsize = 0)
@@ -70,44 +84,33 @@ def sock_recv(socket, queue):
         queue.put(msg)
 
 def recv_message(message):
-    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer,loggedIn,send_request,login_button,register_button,player_list,players, ready_user
+    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer
+    global loggedIn, send_request, login_button, register_button, player_list,players, ready_user
     split_message = message.split("|")
-    if split_message[0] == "CARDSTACK":
-        cardlist = dec_cardstack(split_message[1])
 
-        for card in cardlist:
-            imageList = []
-            posList = []
-            posList.append([-75, -75])
-            imageList.append(pygame.transform.rotate(images[card[0]], random.randint(0, 360)))
-            for image_num in card[1:]:
-                angle += delta
-                posx = 225 * math.cos(angle) - 75 - 10
-                posy = 225 * math.sin(angle) - 75 - 10
-                posList.append((posx,posy))
-                imageList.append(pygame.transform.rotate(images[image_num], random.randint(0, 360)))
-            cards_obj.append(cards.Card(posList, imageList, card))
-        personal_card = cards_obj.pop()
-        personal_card.pos = [350, 350]
-        personal_card.rect()
-
-    elif split_message[0] == "ACTIVECARD":
+    if split_message[0] == "ACTIVECARD":
+        print(split_message)
         active_card = dec_activecard(split_message[1])
-        imageList = []
-        posList = []
-        posList.append([-75, -75])
-        imageList.append(pygame.transform.rotate(images[active_card[0]], random.randint(0, 360)))
-        for image_num in active_card[1:]:
-            angle += delta
-            posx = 225 * math.cos(angle) - 75 - 10
-            posy = 225 * math.sin(angle) - 75 - 10
-            posList.append((posx,posy))
-            imageList.append(pygame.transform.rotate(images[int(image_num)], random.randint(0, 360)))
-        active_card = cards.Card(posList,imageList, active_card)
+        active_card = card_build(active_card)
         active_card.pos = [1050, 350]
         active_card.rect()
         score_list = split_message[2].split(":")
         go = True
+
+    elif split_message[0] == "NEWCARD":
+        print("new", split_message)
+        new_card = dec_activecard(split_message[1])
+        new_card = card_build(new_card)
+        cards_obj.append(new_card)
+
+    elif split_message[0] == "CARDSTACK":
+        cardlist = dec_cardstack(split_message[1])
+
+        for card in cardlist:
+            cards_obj.append(card_build(card))
+        personal_card = cards_obj.pop()
+        personal_card.pos = [350, 350]
+        personal_card.rect()
 
     elif split_message[0] == "END":
         end(split_message[1])
@@ -241,9 +244,7 @@ while loggedIn:
 
         if not input_queue.empty():
             msg = input_queue.get().decode("utf-8")
-            print(msg)
             decode_message(msg)
-            print("playeres", players, ready_user)
             readyBoard(screen, (575, 625), (250, 50), players, user, ready_user)
 
 
@@ -269,7 +270,7 @@ while loggedIn:
             if event.type == pygame.MOUSEBUTTONDOWN:
                  
                 # -----------------------------------------------
-                clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
+                # clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
                 # -----------------------------------------------
 
                 pos = pygame.mouse.get_pos()

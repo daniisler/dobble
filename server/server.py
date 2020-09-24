@@ -85,7 +85,8 @@ def fanoplane(size):
 => Start                START|.
 => Setup                USERID|userid
 => Card Stack           CARDSTACK|cardstack
-=> new active Card      ACTIVCARD|picturelist|list_of_playerscore
+=> new active Card      ACTIVECARD|picturelist|list_of_playerscore
+=> new player Card      NEWCARD|picturelist
 => end                  END|winner|
 => countdown            COUNTDOWN|second
 => ready                READY|userid # Goes from user to server
@@ -227,8 +228,9 @@ while True:
 
                 active_card = cards.pop()
                 player_cardlist = [[] for player in players]
-                for i in range(len(cards)):
+                for i in range(len(players) * 5):
                     player_cardlist[i%len(players)].append(cards[i])
+                    cards.remove(cards[i])
 
                 for p in range(len(players)):
                     player_cardlist_join = []
@@ -264,11 +266,16 @@ while True:
                 dobble_db.print("users")
                 actor = int(msg_split[1])
                 score[actor] += 1
+                cards.append(active_card)
+                print("cardlist", player_cardlist[actor])
                 active_card = player_cardlist[actor].pop()
                 msg_activ_card = "$ACTIVECARD|" + ":".join([str(imageId) for imageId in active_card])
                 msg_score = "|" + ":".join([str(points) for points in score])
                 for player in players:
                     player.send((msg_activ_card + msg_score).encode("utf-8"))
+                new_card = random.choice(cards)
+                players[actor].send(("$NEWCARD|" + ":".join([str(imageId) for imageId in new_card])).encode("utf-8"))
+                player_cardlist[actor].append(new_card)
                 print(score)
                 
                 if len(player_cardlist[actor]) == 1:
