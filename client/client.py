@@ -28,13 +28,6 @@ def dec_activecard(enc_message):
     active_card = enc_message.split(":")
     return [int(code) for code in active_card]
 
-def dec_score(enc_message):
-    enc_score_list = enc_message.split("#")
-    score_list = []
-    for score in enc_score_list:
-        score_list.append(score.split(":"))
-    return score_list
-
 def end(enc_message):
     print("game over, player {} win".format(enc_message))
 
@@ -268,9 +261,11 @@ while loggedIn:
                 sys.exit()
 
             if event.type == pygame.MOUSEBUTTONDOWN:
+                 
+                # -----------------------------------------------
+                # clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
+                # -----------------------------------------------
 
-                clientSocket.send("CARDPLAYED|{}".format(str(user)).encode("utf-8")) #CHEAT CODE FOR FAST RUN ->> DEBUGGING
-                
                 pos = pygame.mouse.get_pos()
                 image_id = personal_card.collide(pos)
                 if image_id != None and not do_penalty:
