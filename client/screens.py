@@ -92,19 +92,22 @@ def startScreen(screen,pos,size,input_boxes,buttons):
     for button in buttons:
         button.draw()
         
-def readyBoard(screen, pos, size, players, userId, ready_users=[]):
+def readyBoard(screen, pos, size, players, userId, player_names, ready_users=[]):
+    if len(player_names) == 0:
+        return
     print(players)
-    num = len(players)
+    num = len(player_names)
     place_per_user = size[0] // num
     pygame.draw.rect(screen, (0, 0, 0),pygame.Rect(pos[0], pos[1], size[0], size[1]), 0)
     pygame.draw.rect(screen, (255, 255, 255),pygame.Rect(pos[0], pos[1], size[0], size[1]), 1)
-    for player in players:
+    print(player_names,players)
+    for player in range(len(player_names)):
         if str(player) == userId:
-            TextSurf, TextRect = text_objects(str(player), pygame.font.Font('freesansbold.ttf', 36), (255, 0, 0))
+            TextSurf, TextRect = text_objects(player_names[int(player)], pygame.font.Font('freesansbold.ttf', 36), (255, 0, 0))
         elif str(player) in ready_users:
-            TextSurf, TextRect = text_objects(str(player), pygame.font.Font('freesansbold.ttf', 36), (0, 255, 0))
+            TextSurf, TextRect = text_objects(player_names[int(player)], pygame.font.Font('freesansbold.ttf', 36), (0, 255, 0))
         else:
-            TextSurf, TextRect = text_objects(str(player), pygame.font.Font('freesansbold.ttf', 36))
+            TextSurf, TextRect = text_objects(player_names[int(player)], pygame.font.Font('freesansbold.ttf', 36))
         posx = pos[0] + place_per_user * int(player) + place_per_user // 2
         posy = pos[1] + size[1] // 2
         TextRect.center = ((posx, posy))

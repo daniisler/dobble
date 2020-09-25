@@ -12,7 +12,7 @@ from inputbox import InputBox
 pygame.init()
 ip = "localhost"
 #ip = "10.0.2.15"
-port = 8002
+port = 8003
 clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print("go")
 def dec_cardstack(enc_message):
@@ -70,6 +70,7 @@ go = False
 lobby = True
 loggedIn = False
 send_request = False
+player_names = []
 score_list = []
 players = []
 ready_user = []
@@ -86,7 +87,26 @@ def sock_recv(socket, queue):
 def recv_message(message):
     global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer
     global loggedIn, send_request, login_button, register_button, player_list,players, ready_user
+    global loggedIn, player_names
     split_message = message.split("|")
+    if split_message[0] == "CARDSTACK":
+        cardlist = dec_cardstack(split_message[1])
+
+        for card in cardlist:
+            imageList = []
+            posList = []
+            posList.append([-75, -75])
+            imageList.append(pygame.transform.rotate(images[card[0]], random.randint(0, 360)))
+            for image_num in card[1:]:
+                angle += delta
+                posx = 225 * math.cos(angle) - 75 - 10
+                posy = 225 * math.sin(angle) - 75 - 10
+                posList.append((posx,posy))
+                imageList.append(pygame.transform.rotate(images[image_num], random.randint(0, 360)))
+            cards_obj.append(cards.Card(posList, imageList, card))
+        personal_card = cards_obj.pop()
+        personal_card.pos = [350, 350]
+        personal_card.rect()
 
     if split_message[0] == "ACTIVECARD":
         print(split_message)
@@ -144,9 +164,15 @@ def recv_message(message):
     elif split_message[0] == "JOIN":
         players = list((range(int(split_message[1]) + 1)))
 
+
     elif split_message[0] == "READY":
-        ready_user = split_message[2].split(":")
-        players = list(range(int(split_message[1])))
+        ready_user = split_message[2].split(":") # ready_user: the players who are ready
+        players = list(range(int(split_message[1]))) #players: list of haw many players there are
+        print("ready:",player_names)
+
+    elif split_message[0] == "NAMES":
+        print("NAMES",split_message[1])
+        player_names = split_message[1].split(":")
         
 
 def decode_message(msg):
@@ -210,8 +236,9 @@ while not loggedIn:
     pygame.display.flip()
 
 screen.fill((0,0,0))
-
+print(player_names)
 while loggedIn:
+    readyBoard(screen, (575, 625), (250, 50), players, user, player_names, ready_user)
     ready_button = Button(screen, (350, 250), (700, 200), "Ready?", (250, 0, 0), (150, 150, 200), False, 180)
     penalty_queue = Queue(maxsize = 0)
     do_penalty = False
@@ -246,9 +273,11 @@ while loggedIn:
         if not input_queue.empty():
             msg = input_queue.get().decode("utf-8")
             decode_message(msg)
-            readyBoard(screen, (575, 625), (250, 50), players, user, ready_user)
+            readyBoard(screen, (575, 625), (250, 50), players, user,player_names, ready_user)
 
-
+# ready_user: the players who are ready
+#players: how many players there are
+# plyer_names: all player names
 
             if timer == 0:
                 ready_button.draw()

@@ -91,8 +91,8 @@ def fanoplane(size):
 => countdown            COUNTDOWN|second
 => ready                READY|userid # Goes from user to server
 => join                 JOIN|userid
-=> sendready            READY|user_num|userid # Goes from server to user
-
+=> sendready            READY|user_num|userid_who_are_ready # Goes from server to user
+=> send player names    NAMES|list_of_playernames
 """
 """
 users_db = DB("users",["id","Ipv4","name","password"])
@@ -102,7 +102,7 @@ users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
 num_players = 1
 ip = "localhost"
 #ip = "10.0.2.15"
-port = 8002
+port = 8003
 input_queue = Queue(maxsize = 0)
 
 newplayer_queue = Queue(maxsize = 0)
@@ -186,8 +186,12 @@ while True:
                     player_dict[user_id] = True
                     players[int(user_id)].send(("$BOOLEAN|1").encode("utf-8"))
                     unify_id_name[result[0][0]] = result[0][1]
+                    for player in players:
+                        player.send(("$NAMES|"+":".join([names for names in unify_id_name.values()])).encode("utf-8"))
+                        player.send(("$READY|" + str(len(players)) + "|" + ":".join([str(user) for user in user_ready])).encode("utf-8"))
                 else:
                     players[int(user_id)].send(("$BOOLEAN|0").encode("utf-8"))
+                    player.send(("$NAMES|"+":".join([names for names in unify_id_name.values()])).encode("utf-8"))
                     print("wrong")
 
             elif msg_split[0] == "REGISTER":
@@ -207,10 +211,13 @@ while True:
                     print(user_id)
                     print(player_dict)
                     players[int(user_id)].send(("$BOOLEAN|1").encode("utf-8"))
+                    print([names for names in unify_id_name.values()])
+                    for player in players:
+                        player.send(("$NAMES|"+":".join([names for names in unify_id_name.values()])).encode("utf-8"))
+                        player.send(("$READY|" + str(len(players)) + "|" + ":".join([str(user) for user in user_ready])).encode("utf-8"))
                 else:
                     players[int(user_id)].send(("$BOOLEAN|0").encode("utf-8"))
-                for player in players:
-                    player.send(("$READY|" + str(len(players)) + "|" + ":".join([str(user) for user in user_ready])).encode("utf-8"))
+
 
             elif msg_split[0] == "QUIT":
                 actor = int(msg_split[1])
