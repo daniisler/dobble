@@ -146,7 +146,8 @@ while True:
     game = True
     cards = fanoplane(size)
     user_ready = []
-    Thread(target = listen, args = [serverSocket, newplayer_queue]).start()
+    if len(players) != 0:
+        Thread(target = listen, args = [serverSocket, newplayer_queue]).start()
     while loading:
                             
         if not newplayer_queue.empty():
@@ -163,7 +164,7 @@ while True:
             
             msg = input_queue.get().decode("utf-8")
             msg_split = msg.split("|")
-            print(msg)
+            print(msg, "message")
             if msg_split[0] == "READY":
                 user_ready.append(int(msg_split[1]))
                 for player in players:
@@ -295,6 +296,8 @@ while True:
                 actor = int(msg_split[1])
                 print("Player " + str(actor) + " has disconnected")
                 players.remove(players[actor])
+                if players == []:
+                    game = False
 
 
 
