@@ -102,7 +102,7 @@ users_db.create_table = DB("user_table",["id","Ipv4","name","password"])
 num_players = 1
 ip = "localhost"
 #ip = "10.0.2.15"
-port = 8001
+port = 8002
 input_queue = Queue(maxsize = 0)
 
 newplayer_queue = Queue(maxsize = 0)
@@ -275,10 +275,10 @@ while True:
                     player.send((msg_activ_card + msg_score).encode("utf-8"))
                 new_card = random.choice(cards)
                 players[actor].send(("$NEWCARD|" + ":".join([str(imageId) for imageId in new_card])).encode("utf-8"))
-                player_cardlist[actor].append(new_card)
+                player_cardlist[actor].insert(0, new_card)
                 print(score)
                 
-                if len(player_cardlist[actor]) == 1:
+                if max(score) == 20:
                     game = False
                     print("player won!")
                     msg_won = "$END|" + str(actor)+"|"+":".join([names for names in unify_id_name.values()])
