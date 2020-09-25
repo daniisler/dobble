@@ -92,14 +92,16 @@ def startScreen(screen,pos,size,input_boxes,buttons):
     for button in buttons:
         button.draw()
         
-def readyBoard(screen, pos, size, players, userId,player_names, ready_users=[]):
+def readyBoard(screen, pos, size, players, userId, player_names, ready_users=[]):
+    if len(player_names) == 0:
+        return
     print(players)
     num = len(players)
     place_per_user = size[0] // num
     pygame.draw.rect(screen, (0, 0, 0),pygame.Rect(pos[0], pos[1], size[0], size[1]), 0)
     pygame.draw.rect(screen, (255, 255, 255),pygame.Rect(pos[0], pos[1], size[0], size[1]), 1)
     print(player_names,players)
-    for player in players:
+    for player in range(len(player_names)):
         if str(player) == userId:
             TextSurf, TextRect = text_objects(player_names[int(player)], pygame.font.Font('freesansbold.ttf', 36), (255, 0, 0))
         elif str(player) in ready_users:
