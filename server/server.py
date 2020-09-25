@@ -190,6 +190,7 @@ while True:
                         player.send(("$READY|" + str(len(players)) + "|" + ":".join([str(user) for user in user_ready])).encode("utf-8"))
                 else:
                     players[int(user_id)].send(("$BOOLEAN|0").encode("utf-8"))
+                    player.send(("$NAMES|"+":".join([names for names in unify_id_name.values()])).encode("utf-8"))
                     print("wrong")
 
             elif msg_split[0] == "REGISTER":

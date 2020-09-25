@@ -96,7 +96,7 @@ def readyBoard(screen, pos, size, players, userId, player_names, ready_users=[])
     if len(player_names) == 0:
         return
     print(players)
-    num = len(players)
+    num = len(player_names)
     place_per_user = size[0] // num
     pygame.draw.rect(screen, (0, 0, 0),pygame.Rect(pos[0], pos[1], size[0], size[1]), 0)
     pygame.draw.rect(screen, (255, 255, 255),pygame.Rect(pos[0], pos[1], size[0], size[1]), 1)

@@ -57,7 +57,7 @@ go = False
 lobby = True
 loggedIn = False
 send_request = False
-player_names = None
+player_names = []
 score_list = []
 players = []
 ready_user = []
@@ -215,8 +215,9 @@ while not loggedIn:
     pygame.display.flip()
 
 screen.fill((0,0,0))
-readyBoard(screen, (575, 625), (250, 50), players, player_names,ready_user)
+print(player_names)
 while loggedIn:
+    readyBoard(screen, (575, 625), (250, 50), players, user, player_names, ready_user)
     ready_button = Button(screen, (350, 250), (700, 200), "Ready?", (250, 0, 0), (150, 150, 200), False, 180)
     penalty_queue = Queue(maxsize = 0)
     do_penalty = False
