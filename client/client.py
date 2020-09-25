@@ -57,6 +57,7 @@ go = False
 lobby = True
 loggedIn = False
 send_request = False
+player_names = None
 score_list = []
 players = []
 ready_user = []
@@ -70,7 +71,7 @@ def sock_recv(socket, queue):
         queue.put(msg)
 
 def recv_message(message):
-    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer,loggedIn,send_request,login_button,register_button,player_list,players, ready_user
+    global cards_obj, active_card, go, angle, delta, personal_card, user, game, lobby, score_list, timer,loggedIn,send_request,login_button,register_button,player_list,players, ready_user,player_names
     split_message = message.split("|")
     if split_message[0] == "CARDSTACK":
         cardlist = dec_cardstack(split_message[1])
@@ -144,6 +145,8 @@ def recv_message(message):
     elif split_message[0] == "READY":
         ready_user = split_message[2].split(":")
         players = list(range(int(split_message[1])))
+        player_names = split_message[3].split(":")
+        print("ready:",player_names)
         
 
 def decode_message(msg):
@@ -207,7 +210,7 @@ while not loggedIn:
     pygame.display.flip()
 
 screen.fill((0,0,0))
-readyBoard(screen, (575, 625), (250, 50), players, user, ready_user)
+readyBoard(screen, (575, 625), (250, 50), players, player_names,ready_user)
 while loggedIn:
     ready_button = Button(screen, (350, 250), (700, 200), "Ready?", (250, 0, 0), (150, 150, 200), False, 180)
     penalty_queue = Queue(maxsize = 0)
@@ -244,7 +247,7 @@ while loggedIn:
             print(msg)
             decode_message(msg)
             print("playeres", players, ready_user)
-            readyBoard(screen, (575, 625), (250, 50), players, user, ready_user)
+            readyBoard(screen, (575, 625), (250, 50), players, user, ready_user,player_names)
 
 
 
