@@ -146,8 +146,7 @@ while True:
     game = True
     cards = fanoplane(size)
     user_ready = []
-    if len(players) != 0:
-        Thread(target = listen, args = [serverSocket, newplayer_queue]).start()
+    Thread(target = listen, args = [serverSocket, newplayer_queue]).start()
     while loading:
                             
         if not newplayer_queue.empty():
