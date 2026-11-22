@@ -1,5 +1,4 @@
 # Byte-compiled / optimized / DLL files
-DOBBLE
 client/__pycache__/*
 server/__pycache__/*
 *.py[cod]
@@ -130,3 +129,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+data/
+node_modules/

@@ -1,0 +1,15 @@
+{
+  "name": "matchme",
+  "version": "2.0.0",
+  "description": "Multiplayer symbol-matching card game for the browser",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test server/game.test.js server/penalty.test.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "sharp": "^0.35.5",
+    "ws": "^8.18.0"
+  }
+}

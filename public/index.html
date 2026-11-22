@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>{{APP_NAME}}</title>
+<script>try{var t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='dark'}</script>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<button id="theme" title="Switch light/dark mode" aria-label="Switch light/dark mode"></button>
+<div id="app">
+
+  <section id="loading" class="screen active">
+    <h1>{{APP_NAME}}</h1>
+    <div class="bar"><div id="loadbar"></div></div>
+    <p id="loadtext">Loading images…</p>
+    <button id="loadreload" class="secondary" hidden>Reload</button>
+  </section>
+
+  <section id="home" class="screen">
+    <h1>{{APP_NAME}}</h1>
+
+    <div class="panel" id="homepanel">
+      <div id="nickrow"><input id="nick" maxlength="16" placeholder="Nickname" autocomplete="off"></div>
+      <div id="member" hidden>
+        <p>Signed in as <b id="whoami"></b><br>
+          <button id="btn-logout" class="link">log out</button> ·
+          <button id="btn-delete" class="link">delete account</button></p>
+      </div>
+      <form id="delform" hidden onsubmit="return false">
+        <p class="hint">This permanently deletes your account, your uploaded images and your saved picks.</p>
+        <input id="delpass" type="password" placeholder="Password to confirm" autocomplete="current-password">
+        <div class="row">
+          <button id="del-go" class="danger">Delete permanently</button>
+          <button id="del-cancel" type="button" class="secondary">Cancel</button>
+        </div>
+        <p id="delerr" class="err"></p>
+      </form>
+      <div class="row">
+        <input id="code" maxlength="4" placeholder="ROOM CODE" autocomplete="off">
+        <button id="btn-join">Join room</button>
+      </div>
+      <div class="or"><span>or</span></div>
+      <button id="btn-create">Create room</button>
+      <p id="homeerr" class="err"></p>
+    </div>
+
+    <form class="panel" id="createdlg" hidden onsubmit="return false">
+      <h3>Create a room</h3>
+      <p class="hint">An account is only needed if you want to use <b>your own images</b> in the room. It keeps your uploaded images and your picks for next time.</p>
+      <input id="user" maxlength="16" placeholder="Username" autocomplete="username">
+      <input id="pass" type="password" placeholder="Password" autocomplete="current-password">
+      <div class="row">
+        <button id="dlg-login">Log in &amp; create</button>
+        <button id="dlg-register" type="button" class="secondary">Register &amp; create</button>
+      </div>
+      <div class="or"><span>or, without custom images</span></div>
+      <input id="guestnick" maxlength="16" placeholder="Nickname" autocomplete="off">
+      <button id="dlg-guest" type="button" class="secondary">Continue as guest</button>
+      <button id="dlg-back" type="button" class="link">Back</button>
+      <p id="dlgerr" class="err"></p>
+    </form>
+
+    <p id="credits" class="hint">Default images: Twemoji © Twitter, Inc. and other contributors, licensed under
+      <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC-BY 4.0</a>.</p>
+  </section>
+
+  <section id="lobby" class="screen">
+    <h2>Room <span id="roomcode"></span></h2>
+    <p class="hint">Share this code with your friends.</p>
+    <ul id="playerlist"></ul>
+    <div id="deckrow" class="panel">
+      <label for="deck">Deck size</label>
+      <select id="deck"></select>
+      <p id="decktext" class="hint"></p>
+      <label for="stack" id="stacklabel">Cards per player</label>
+      <select id="stack"></select>
+      <p id="stacktext" class="hint"></p>
+    </div>
+    <div class="row">
+      <button id="btn-ready">Ready</button>
+      <button id="btn-leave" class="secondary">Leave</button>
+    </div>
+    <p id="lobbystatus" class="hint"></p>
+    <p id="lobbyerr" class="err"></p>
+
+    <div id="editor" class="panel wide" hidden>
+      <h3>Custom images</h3>
+      <p class="hint">Pick an image from your library, then click the slots it should replace. Click a replaced slot with nothing picked to restore it.</p>
+      <div class="row">
+        <label id="uploadlabel" class="button secondary">Upload images<input id="file" type="file" accept="image/*" multiple hidden></label>
+        <button id="btn-reset" class="secondary">Reset all</button>
+      </div>
+      <div id="upprogress" hidden>
+        <div class="progress"><div id="upfill"></div></div>
+        <p id="uptext" class="hint"></p>
+      </div>
+      <p id="editorerr" class="err"></p>
+
+      <div id="slots" class="grid"></div>
+      <h4>Your library</h4>
+      <div id="library" class="grid"></div>
+    </div>
+    <p id="editornote" class="hint" hidden></p>
+  </section>
+
+  <section id="game" class="screen">
+    <div id="hud"></div>
+    <div id="table">
+      <div class="card-wrap">
+        <div id="label-center" class="label">Centre card</div>
+        <div id="center" class="card"></div>
+      </div>
+      <div class="card-wrap">
+        <div class="label mine-label">Your card: click the match</div>
+        <div id="mine" class="card"></div>
+      </div>
+    </div>
+    <div id="banner" hidden></div>
+    <div id="overlay" hidden><div id="pen-msg"></div><div id="pen-num"></div></div>
+    <button id="btn-cancel" class="secondary small" hidden>Cancel game</button>
+  </section>
+
+  <section id="results" class="screen">
+    <div id="winner"></div>
+    <p id="yourresult" class="hint"></p>
+    <div class="tablewrap"><table id="ranking"></table></div>
+    <div id="awards"></div>
+    <div class="row narrow">
+      <button id="btn-again">Play again</button>
+      <button id="btn-back" class="secondary">Back to lobby</button>
+    </div>
+  </section>
+
+  <div id="connlost" hidden>
+    <div class="box">
+      <h2>Connection lost</h2>
+      <p id="connmsg"></p>
+      <button id="connbtn">Back to start</button>
+    </div>
+  </div>
+
+  <div id="count" hidden><div id="countnum"></div><button id="btn-cancel-count" class="secondary" hidden>Cancel</button></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

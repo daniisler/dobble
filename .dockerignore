@@ -1,0 +1,8 @@
+node_modules
+data
+.git
+.vscode
+*.md
+server/*.test.js
+assets
+.env

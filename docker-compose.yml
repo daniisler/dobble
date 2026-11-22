@@ -1,0 +1,16 @@
+services:
+  matchme:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8054:8054"
+    # settings (admin login, connection timeout, ...) come from ".env" next to this file; see .env.example
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - app-data:/data
+volumes:
+  # keeps using the existing Docker volume of earlier versions, so no accounts or images are lost
+  app-data:
+    name: dobble_dobble-data
