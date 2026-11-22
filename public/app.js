@@ -552,7 +552,18 @@ function renderHud() {
 
 // Instant feedback: the click is applied locally right away and sent to the
 // server; the server arbitrates races and we roll back on rejection.
+// Touching a card must never select anything: block the long-press menu, selection and the tap's compatibility events.
+for (const id of ['mine', 'center']) {
+  const el = $(id);
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  el.addEventListener('selectstart', (e) => e.preventDefault());
+  el.addEventListener('dragstart', (e) => e.preventDefault());
+  el.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });   // pointerdown still fires first
+}
 $('mine').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  const sel = window.getSelection && window.getSelection();
+  if (sel && sel.rangeCount) sel.removeAllRanges();
   if (!G || !G.active) return;
   const t = e.target;
   if (!t.dataset || t.dataset.sym === undefined) return;

@@ -142,3 +142,11 @@ body:has(#game.active) #theme { display:none; }
 #upprogress { display:flex; flex-direction:column; gap:4px; }
 #upprogress[hidden] { display:none; }
 #uploadlabel.disabled { opacity:.5; pointer-events:none; }
+
+/* no blue "selected" look on phones: no tap highlight, no long-press callout/selection, no dragging of pictures */
+* { -webkit-tap-highlight-color: transparent; }
+body, .card, .card img, #game { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+.card img { -webkit-user-drag:none; user-drag:none; outline:none; }
+#game ::selection, .card ::selection { background:transparent; }
+#game ::-moz-selection, .card ::-moz-selection { background:transparent; }
+input, textarea, select { -webkit-user-select:text; user-select:text; }   /* typing must keep working (iOS blocks it otherwise) */
