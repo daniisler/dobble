@@ -65,6 +65,19 @@ setTheme(document.documentElement.dataset.theme || 'dark');
 function show(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('active', s.id === id));
   if (id === 'home') closeCreateDialog();
+  if (id === 'game') resetZoom();
+}
+
+// Phones zoom in when a text field is focused (and stay zoomed). Before a game the page must be at 100 % again:
+// drop focus, then briefly lock the viewport scale, which makes the browser snap back, and release it.
+function resetZoom() {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  const meta = document.querySelector('meta[name=viewport]');
+  if (!meta) return;
+  const original = meta.content;
+  meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+  window.scrollTo(0, 0);
+  setTimeout(() => { meta.content = original; if (typeof fitCards === 'function') try { fitCards(); } catch { } }, 150);
 }
 
 // ------------------------------------------------------------ state
