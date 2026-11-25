@@ -5,7 +5,9 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
-    "test": "node --test server/game.test.js server/penalty.test.js"
+    "test": "node --test server/game.test.js server/penalty.test.js server/cutout.test.js",
+    "postinstall": "node scripts/fetch-model.js",
+    "fetch-model": "node scripts/fetch-model.js"
   },
   "license": "MIT",
   "dependencies": {

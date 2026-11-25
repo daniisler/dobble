@@ -159,8 +159,78 @@
     </div>
   </div>
 
+  <div id="imged" hidden role="dialog" aria-modal="true" aria-label="Edit image">
+    <div class="box">
+      <div class="imged-head"><b id="imged-title">Edit image</b><span id="imged-count" class="hint"></span></div>
+      <div id="imged-pic2" class="imged-pic2" hidden>
+        <span>Second picture: prepare it, then place it on the first one.</span>
+        <button type="button" class="small" id="pic2-place">Place on picture 1 ▸</button>
+        <button type="button" class="secondary small" id="pic2-discard">Discard it</button>
+      </div>
+      <div class="imged-tools">
+        <button type="button" class="secondary small" data-tool="cut" title="Select the object or the background by clicking">✂ Remove background</button>
+        <button type="button" class="secondary small" data-tool="crop" title="Round crop: move and zoom the picture inside the circle">⭕ Crop</button>
+        <button type="button" class="secondary small" data-tool="draw" title="Draw on the picture">✏ Draw</button>
+        <button type="button" class="secondary small" data-tool="erase" title="Erase parts of the picture">⌫ Erase</button>
+        <button type="button" class="secondary small" id="imged-add" title="Add a second picture and combine them">➕ Add picture</button>
+        <button type="button" class="secondary small" id="imged-rotate" title="Rotate 90°">⟳ Rotate</button>
+        <button type="button" class="secondary small" id="imged-undo" title="Undo (Ctrl+Z)">↶ Undo</button>
+        <button type="button" class="secondary small" id="imged-reset" title="Back to the original picture">↺ Start over</button>
+      </div>
+      <input id="imged-file2" type="file" accept="image/*" hidden>
+      <div class="imged-opts">
+        <div id="opt-cut">
+          <p id="cut-status" class="hint"></p>
+          <div class="seg">
+            <button type="button" class="secondary small on" id="cut-add" title="Clicking adds the area to the selection">＋ Add area</button>
+            <button type="button" class="secondary small" id="cut-sub" title="Clicking takes the area out of the selection (or right-click / Alt+click)">－ Subtract area</button>
+            <button type="button" class="secondary small" id="cut-undo" title="Take back the last selection step (Ctrl+Z)">↶ Undo step</button>
+            <button type="button" class="secondary small" id="cut-multi" title="Tap nodes to select several; drag on the picture for a box (Ctrl/Shift+click does this with the mouse)">☑ Select nodes</button>
+          </div>
+          <label id="cut-tol-label" hidden>Sensitivity <input id="cut-tol" type="range" min="0" max="100" value="40"></label>
+          <div class="seg">
+            <button type="button" class="small" id="cut-keep" title="Make everything except the selection transparent">Keep selected</button>
+            <button type="button" class="small" id="cut-remove" title="Make the selection transparent">Remove selected</button>
+            <button type="button" class="secondary small" id="cut-invert">Invert</button>
+            <button type="button" class="secondary small" id="cut-clear">Clear</button>
+            <button type="button" class="secondary small" id="cut-delnode" title="Delete the selected nodes (Delete key)">Delete nodes</button>
+          </div>
+        </div>
+        <div id="opt-crop" hidden>
+          <label>Zoom <input id="crop-zoom" type="range" min="20" max="400" value="100"></label>
+          <button type="button" class="secondary small" id="crop-fit">Fit automatically</button>
+        </div>
+        <div id="opt-draw" hidden><label>Colour <input id="draw-color" type="color" value="#e53935"></label>
+          <label>Size <input id="draw-size" type="range" min="2" max="60" value="12"></label></div>
+        <div id="opt-erase" hidden><label>Size <input id="erase-size" type="range" min="2" max="80" value="20"></label></div>
+        <div id="opt-place" hidden>
+          <label>Size <input id="place-size" type="range" min="5" max="300" value="100"></label>
+          <label>Turn <input id="place-rot" type="range" min="-180" max="180" value="0"></label>
+          <button type="button" class="small" id="place-done">Done</button>
+          <button type="button" class="secondary small" id="place-back">Back</button>
+        </div>
+      </div>
+      <div id="imged-stage"><canvas id="imged-cv"></canvas><canvas id="imged-pv"></canvas><canvas id="imged-ov"></canvas>
+        <button type="button" class="secondary small" id="view-reset" hidden title="Show the whole picture again">⤢ Fit</button>
+        <div id="imged-busy" hidden role="status"><div class="spinner"></div><p id="busy-text"></p><p id="busy-note" class="hint"></p></div></div>
+      <div class="busy-actions"><button type="button" class="secondary" id="busy-cancel" hidden>Cancel</button>
+        <button type="button" class="secondary" id="busy-simple" hidden title="Instant, but only good on plain backgrounds">Use the simple method instead</button></div>
+      <p id="imged-hint" class="hint"></p>
+      <p id="imged-err" class="err"></p>
+      <div class="imged-foot">
+        <button type="button" id="imged-ok">Upload</button>
+        <button type="button" class="secondary" id="imged-skip">Skip this one</button>
+        <button type="button" class="secondary" id="imged-rest">Upload the rest unchanged</button>
+        <button type="button" class="secondary" id="imged-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div id="count" hidden><div id="countnum"></div><button id="btn-cancel-count" class="secondary" hidden>Cancel</button></div>
 </div>
+<script src="cutout.js"></script>
+<script src="segment.js"></script>
+<script src="editor.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

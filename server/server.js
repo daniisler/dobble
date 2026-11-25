@@ -25,7 +25,8 @@ const RECONNECT_GRACE_MS = Math.min(600, Math.max(5, Number(process.env.RECONNEC
 // ---------------------------------------------------------------- static
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css',
-  '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon'
+  '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon',
+  '.mjs': 'text/javascript', '.json': 'application/json', '.wasm': 'application/wasm', '.onnx': 'application/octet-stream'
 };
 // ---- small in-memory rate limiter (per IP or per user), against password guessing and upload spam
 const TRUST_PROXY = ['1', 'true'].includes(String(process.env.TRUST_PROXY).toLowerCase());   // behind nginx: use X-Forwarded-For
@@ -103,6 +104,10 @@ const server = http.createServer((req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'no-referrer');
+  // cross-origin isolation: lets the browser run the picture editor's model on several threads (about 3x faster). Safe because
+  // everything the app loads comes from this same origin.
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
   let p;
   try { p = decodeURIComponent(req.url.split('?')[0]); } catch { res.writeHead(400).end('Bad request'); return; }   // a malformed %-escape must not crash the server
   if (p.includes('\0')) return notFound(res);
@@ -132,7 +137,7 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(file);
     const headers = {
       'Content-Type': TYPES[ext] || 'application/octet-stream',
-      'Cache-Control': ext === '.webp' || uploaded ? 'public, max-age=31536000, immutable' : 'no-cache',
+      'Cache-Control': ext === '.webp' || uploaded ? 'public, max-age=31536000, immutable' : /^\/(vendor|models)\//.test(p) ? 'public, max-age=86400' : 'no-cache',
     };
     // user-supplied files may only ever be shown as pictures: no scripts, no framing, no embedding on other sites
     if (uploaded) Object.assign(headers, { 'Content-Security-Policy': "default-src 'none'; sandbox", 'Cross-Origin-Resource-Policy': 'same-origin' });

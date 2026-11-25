@@ -467,3 +467,19 @@ test('creator options: hand over the host role, lock the room, penalty length, s
   assert.ok(back.players.every((p) => !p.sit));
   a.close(); b.close(); c.close();
 });
+
+test('cross-origin isolation headers (for the multi-threaded editor model) and file types of the model files', async () => {
+  if (!server.listening) await new Promise((r) => server.listen(0, r));
+  const base = `http://localhost:${server.address().port}`;
+  const r = await fetch(base + '/');
+  assert.equal(r.headers.get('cross-origin-opener-policy'), 'same-origin');
+  assert.equal(r.headers.get('cross-origin-embedder-policy'), 'require-corp');
+  // model files are downloaded by `npm run fetch-model`; when they are present they must be served with the right types and cached
+  const wasm = path.join(__dirname, '..', 'public', 'vendor', 'ort-wasm-simd-threaded.wasm');
+  if (fs.existsSync(wasm)) {
+    const w = await fetch(base + '/vendor/ort-wasm-simd-threaded.wasm');
+    assert.equal(w.status, 200); assert.equal(w.headers.get('content-type'), 'application/wasm');
+    assert.match(w.headers.get('cache-control'), /max-age/);
+    assert.equal((await fetch(base + '/models/Xenova/slimsam-77-uniform/config.json')).headers.get('content-type'), 'application/json');
+  }
+});

@@ -6,3 +6,6 @@ data
 server/*.test.js
 assets
 .env
+
+public/models
+public/vendor

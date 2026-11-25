@@ -2,6 +2,8 @@ FROM node:24-alpine
 ENV NODE_ENV=production PORT=8054 DATA_DIR=/data
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY scripts ./scripts
+# (the install step also downloads the picture editor's segmentation model into /app/public, see scripts/fetch-model.js)
 RUN npm ci --omit=dev
 COPY server ./server
 COPY public ./public

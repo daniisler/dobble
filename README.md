@@ -44,7 +44,7 @@ The name is a setting (`APP_NAME`, see below); "MatchMe" is just the default.
 Requires **Node.js 22.13 or newer** (the Docker image uses Node 24).
 
 ```
-npm install
+npm install              # also downloads the picture editor's background-removal model (about 28 MB)
 cp .env.example .env     # optional: name, admin login, timeouts, ... (see below)
 npm start                # http://localhost:8003
 ```
@@ -182,6 +182,60 @@ As room creator with an account, the lobby shows an image editor:
    images change. Picks saved before sets existed became "Set 1" automatically.
 5. Deleting an image from the library also removes it from all your sets and from open rooms.
 
+### Picture editor (background removal, round crop, combining pictures)
+
+Every picture you choose for upload first opens in an editor window (with several pictures, one after the other: *Upload*,
+*Skip this one*, *Upload the rest unchanged* or *Cancel*; the rest are then uploaded as chosen, without the round crop).
+Nothing is sent until you press *Upload*. The window works with mouse, pen and touch (pinch to zoom, finger to drag) and fills
+the phone screen; *Start over* goes back to the original picture, *Undo* (Ctrl+Z) takes back the last steps.
+
+- **Remove background.** Click an object: a segmentation model outlines it. The selection is drawn in green with an outline
+  made of **nodes**. Then:
+  - **Extend it** by clicking other parts (click the other pigs in a photo of three pigs). Clicking the same spot again tries
+    another shape for that click (a part, the whole object, a larger group).
+  - **Shrink it** with *Subtract area* (or Alt+click, or right-click).
+  - **Select the background instead** (click the wall, the hay, the sky) and press **Remove selected**; or select the object and
+    press **Keep selected**, which removes everything else. *Invert* swaps selected and not selected, *Clear* starts over.
+  - **Undo a step:** *Undo step* (or Ctrl+Z, or the Undo button in the toolbar) takes back the last selection step: an added or
+    subtracted area, invert, clear, a node drag, added or deleted nodes (up to 30). Clicking the same spot again to try another
+    shape counts as one step. When there are no selection steps left, Undo takes back picture changes.
+  - **Zoom** to reach small areas or to keep nodes out of the way: mouse wheel on a laptop, two fingers on a phone (the two
+    fingers also move the picture; on a laptop use Space+drag or the middle mouse button). *Fit* shows the whole picture again.
+    Zoom works in the Draw and Erase tools too.
+  - **Fix the outline:** drag a node, click on the outline to add one, double-click a node (or select it and press *Delete nodes*
+    or the Delete key) to remove it. **Several nodes at once:** Ctrl+click or Shift+click adds nodes to the selection, Ctrl/Shift
+    and drag on an empty spot draws a box; dragging one selected node moves all of them. On a phone switch on **Select nodes**
+    and tap nodes or drag a box.
+- **Crop.** In the game every symbol is shown in a circle, so the editor shows the same circle: drag the picture and zoom it
+  (mouse wheel, pinch or the slider) until the part you want is inside. *Fit automatically* is the default: a plain photo fills
+  the circle, a cut-out is scaled so that all of it is visible. The result is saved as a round picture.
+- **Add picture.** Choose a second picture: it opens with the same tools (for example to cut out a hat), then **Place on picture
+  1** lets you drag, resize (slider, wheel, pinch) and turn it (slider or two-finger twist) on the first one; *Done* merges them
+  into one picture that you can keep editing. While the second picture is open, *Upload* is disabled; *Discard it* goes back.
+- **Draw** (colour and brush size), **Erase** (rubs out to transparent), **Rotate** by 90°.
+
+The result is sent as a 512 × 512 PNG with transparency; the server shrinks it to a small WebP (which keeps the transparency).
+
+**How the background removal works.** It uses [SlimSAM](https://huggingface.co/Xenova/slimsam-77-uniform) (a compact version
+of Meta's Segment Anything model, Apache-2.0), run inside the browser by [Transformers.js](https://github.com/huggingface/transformers.js)
+(Apache-2.0) and ONNX Runtime Web (MIT). The model runs **on the user's device**: pictures are never sent to a model server or
+any other site. The files (about 28 MB: the model 14 MB, the WebAssembly runtime 14 MB) are downloaded **when the app is
+installed**, by `scripts/fetch-model.js` (it runs after `npm install`, also while building the Docker image; pinned to exact
+versions and checked by SHA-256) and served by the app itself from `public/models` and `public/vendor` (both git-ignored). The
+browser only downloads them the first time somebody opens *Remove background*, then keeps them in its cache. Looking at a
+picture takes about 4 seconds on a fast computer with 4 threads, but **30 seconds to several minutes on a phone**, especially
+when the page is not cross-origin isolated (plain `http://` instead of HTTPS, or the `Cross-Origin-*` headers removed by the proxy):
+then only one thread is used. While it works the editor shows a spinner with the elapsed time, a **Cancel** button and a
+**Use the simple method instead** button (instant, colour based); the model runs in a background worker so the page never
+freezes. Every click after the analysis takes about half a second.
+The server sends `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy` headers so the browser may use several threads
+(everything the app loads comes from the same origin, so nothing breaks; keep these headers if you add something to nginx).
+
+If the files are missing (`SKIP_MODEL_DOWNLOAD=1`, no network while installing) the editor automatically falls back to a simple
+colour-based method (`public/cutout.js`: it learns the background from the picture's border, floods it in and keeps the clicked
+object; a *Sensitivity* slider appears). It works for logos and plain backgrounds but not for photos like the pigs. Fix it with
+`npm run fetch-model` (and a rebuild of the Docker image).
+
 Other things to know:
 
 - **Images are downscaled.** The server decodes every upload and stores it as a WebP that fits in 256 × 256 pixels
@@ -311,7 +365,8 @@ server/db.js         SQLite: accounts (scrypt), sessions, image library and proc
 server/admin.js      the admin page and its Basic-auth check
 server/env.js        loads .env
 server/*.test.js     tests
-public/              the browser client: index.html, app.js, style.css, 404.html, img/ (default images)
+public/              the browser client: index.html, app.js, editor.js + segment.js + cutout.js (picture editor), style.css, 404.html, img/ (default images)
+scripts/fetch-model.js  downloads the editor's model into public/models and public/vendor (runs after npm install)
 assets/              original images of the first version (not served)
 data/                database and uploads at runtime (created automatically, git-ignored)
 Dockerfile, docker-compose.yml, .env.example
@@ -343,7 +398,7 @@ npm test
 Runs the server tests: all deck sizes are verified as perfect decks (every pair of cards shares exactly one symbol), full
 games over real WebSockets including race conditions, room settings, cancel, results and win tally, accounts, the image
 library rules, account deletion, upload processing and security (downscaling, refused formats, decompression bombs, served
-headers, path tricks, malformed URLs), rate limiting, the penalty rules with a controlled clock, the admin page and the
+headers, path tricks, malformed URLs), the background-removal outline on synthetic pictures, rate limiting, the penalty rules with a controlled clock, the admin page and the
 statistics.
 
 ## Troubleshooting
@@ -358,8 +413,14 @@ statistics.
 - **Uploads fail with a 413 or by nginx:** raise `client_max_body_size` (8 MB are accepted by the app).
 - **An old version keeps showing after an update:** rebuild with `docker compose up -d --build` and hard-refresh the browser.
 - **Node warns "SQLite is an experimental feature":** harmless; the Docker image hides it.
+- **The picture editor says "Simple mode":** the model files are not installed. Run `npm run fetch-model` (needs internet; for
+  Docker rebuild with `docker compose build --no-cache`) and check that `public/models` and `public/vendor` exist.
+- **Background removal is slow on a phone:** the first picture takes a few seconds to analyse (the model runs on the device);
+  later clicks are quick. Behind nginx, do not strip the `Cross-Origin-*` headers: without them the browser uses one thread.
 
 ## Credits and licence
 
 Game code: see [LICENSE](LICENSE). Default images: Twemoji, © Twitter, Inc. and other contributors, CC-BY 4.0.
-Image processing by [sharp](https://sharp.pixelplumbing.com/) (Apache-2.0).
+Image processing by [sharp](https://sharp.pixelplumbing.com/) (Apache-2.0). Picture editor background removal: SlimSAM
+(Apache-2.0, Zigeng Chen et al., ONNX conversion by Xenova), [Transformers.js](https://github.com/huggingface/transformers.js)
+(Apache-2.0) and [ONNX Runtime Web](https://onnxruntime.ai/) (MIT).

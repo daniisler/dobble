@@ -131,3 +131,7 @@ dmypy.json
 .pyre/
 data/
 node_modules/
+
+# downloaded by scripts/fetch-model.js (picture editor)
+public/models/
+public/vendor/

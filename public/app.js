@@ -451,6 +451,19 @@ async function uploadOne(file) {
   } finally { bmp.close(); }                                   // free the decoded bitmap right away (matters with many images)
 }
 
+// Each chosen picture opens in the editor first (remove background, draw, ...): upload it, skip it, or upload all the rest unchanged.
+async function reviewImages(files) {
+  const out = [];
+  for (let i = 0; i < files.length; i++) {
+    const r = await ImageEditor.open(files[i], { index: i + 1, total: files.length });
+    if (r.action === 'cancel') return [];
+    if (r.action === 'skip') continue;
+    out.push(r.file);
+    if (r.action === 'rest') { out.push(...files.slice(i + 1)); break; }
+  }
+  return out;
+}
+
 // Uploading many pictures: three at a time, with a progress bar that fills up and a summary at the end.
 let uploading = false;
 $('file').onchange = async (e) => {
@@ -458,6 +471,9 @@ $('file').onchange = async (e) => {
   e.target.value = '';
   if (!files.length || uploading) return;
   uploading = true;
+  const reviewed = await reviewImages(files);      // the editor opens for each picture first
+  if (!reviewed.length) { uploading = false; return; }
+  files.splice(0, files.length, ...reviewed);
   $('uploadlabel').classList.add('disabled'); $('file').disabled = true; $('btn-reset').disabled = true;
   $('editorerr').textContent = '';
   const bar = $('upprogress'), fill = $('upfill'), text = $('uptext');
