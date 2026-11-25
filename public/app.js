@@ -269,12 +269,19 @@ function showLobby() {
     // from the second finished game on, show the wins in this room
     li.children[1].textContent = (m.games >= 2 ? `🏆 ${p.wins}` + (p.ready ? ' · ' : '') : '') + (p.away ? 'reconnecting…' : p.ready ? 'ready' : '');
     if (p.ready) li.children[1].className = 'ready';
-    if (isCreator && p.id !== me) {                 // the creator can remove players from the lobby
+    if (isCreator && p.id !== me && m.state === 'lobby') {     // the creator can hand the room over or remove players
+      if (!p.away) {
+        const h = document.createElement('button');
+        h.className = 'secondary small kick'; h.textContent = 'Make host'; h.title = `${p.name} becomes the room creator`;
+        h.onclick = () => { if (confirm(`Make ${p.name} the host of this room? You will lose the creator's controls.`)) send({ t: 'host', id: p.id }); };
+        li.children[1].append(' ', h);
+      }
       const k = document.createElement('button');
       k.className = 'secondary small kick'; k.textContent = 'Kick'; k.title = `Remove ${p.name} from the room`;
       k.onclick = () => send({ t: 'kick', id: p.id });
       li.children[1].append(' ', k);
     }
+    if (p.sit) li.children[1].textContent = 'sitting out';
     $('playerlist').appendChild(li);
   }
   // deck size: the creator picks, everybody sees
@@ -301,17 +308,32 @@ function showLobby() {
     : isCreator ? `Each player gets ${m.stack} cards and the first to play them all wins. With ${np} player${np === 1 ? '' : 's'} this deck allows up to ${m.maxStack} each.`
       : `Cards per player: ${m.stack}`;
   $('stacktext').classList.toggle('err', tooMany);
+  // penalty length: the creator chooses, everybody sees
+  const psel = $('penalty');
+  if (!psel.options.length) psel.replaceChildren(...[1, 2, 3, 4, 5].map((s) => { const o = document.createElement('option'); o.value = s * 1000; o.textContent = `${s} second${s === 1 ? '' : 's'}`; return o; }));
+  psel.value = m.penaltyMs; psel.hidden = !isCreator; $('penaltylabel').hidden = !isCreator;
+  $('penaltytext').textContent = isCreator ? 'How long a player is locked out after clicking a wrong symbol.' : `Penalty for a wrong symbol: ${m.penaltyMs / 1000} s`;
   const mine = m.players.find((p) => p.id === me);
   const btn = $('btn-ready');
   btn.classList.toggle('on', !!(mine && mine.ready));
   btn.textContent = mine && mine.ready ? 'Ready ✓' : 'Ready';
-  $('lobbystatus').textContent = m.state === 'countdown' ? 'Starting…' : 'The game starts when everyone is ready.';
+  const waiting = m.players.filter((p) => p.id !== me && (!p.ready || p.away)).length;
+  $('lobbystatus').textContent = m.state === 'playing' ? 'A game is running. You sit this one out and join the next round.'
+    : m.state === 'countdown' ? 'Starting…' : 'The game starts when everyone is ready.';
+  if (!isCreator && m.locked) $('lobbystatus').textContent += ' 🔒 This room is locked.';
+  const lock = $('btn-lock');
+  lock.hidden = !(isCreator && m.state === 'lobby');
+  lock.textContent = m.locked ? '🔒 Room is locked: click to let new players join' : '🔓 Lock room (no new players can join)';
+  const sn = $('btn-startnow');
+  sn.hidden = !(isCreator && m.state === 'lobby' && np >= 2 && waiting > 0);
+  sn.textContent = `Start now without ${waiting} player${waiting === 1 ? '' : 's'} who ${waiting === 1 ? 'is' : 'are'} not ready`;
   $('crowdwarn').hidden = np <= 6;
   $('crowdwarn').textContent = `${np} players: with more than 6 players the game can get crowded.`;
   $('lobbyerr').textContent = lobbyNotice;
   // make sure the full image set for this room is decoded before the player can ready up
   const need = roomUrls(m).filter((u) => !ready.has(u));
-  btn.disabled = need.length > 0;
+  btn.disabled = need.length > 0 || m.state === 'playing';
+  sn.disabled = need.length > 0;
   if (need.length) {
     btn.textContent = 'Loading images…'; Promise.all(need.map(preload)).then(async () => {
       if (lobby !== m) return;
@@ -329,6 +351,9 @@ $('btn-ready').onclick = () => {
   send({ t: 'ready', v: !(mine && mine.ready) });
 };
 $('btn-leave').onclick = backToStart;
+$('btn-startnow').onclick = () => send({ t: 'startnow' });
+$('btn-lock').onclick = () => send({ t: 'lock', v: !(lobby && lobby.locked) });
+$('penalty').onchange = (e) => send({ t: 'setpenalty', ms: +e.target.value });
 
 function onCount(m) {
   $('count').hidden = !m.n;
@@ -553,7 +578,7 @@ async function onStart(m) {
   layouts.clear();
   G = {
     active: true, colors: {}, last: null, serverLast: null, serverSym: null, creator: m.creator, urls, stack: m.stack, total: m.total,
-    confirmed: 0, pending: [], center: m.center, serverCenter: m.center, penaltyUntil: 0, lockKind: null, pendingSince: null, recent: [], left: {}, names: {}
+    penaltyMs: m.penaltyMs || 3000, confirmed: 0, pending: [], center: m.center, serverCenter: m.center, penaltyUntil: 0, lockKind: null, pendingSince: null, recent: [], left: {}, names: {}
   };
   m.players.forEach((p, i) => { G.names[p.id] = p.name; G.colors[p.id] = COLORS[i % COLORS.length]; });
   if (m.resume) {                                  // coming back into a running game: carry on where the server says we are
@@ -722,10 +747,10 @@ function showFaster(by) {
 }
 
 // Wrong symbol: 3 s lockout, with a short "Wrong symbol!" message for the first two seconds.
-const LATE_WINDOW = 1000, WRONG_LOCK = 3000;
+const LATE_WINDOW = 1000;
 let lockRaf = 0;
 function startLockout(kind) {
-  G.penaltyUntil = performance.now() + WRONG_LOCK;
+  G.penaltyUntil = performance.now() + G.penaltyMs;
   G.lockKind = kind;
   $('mine').classList.add('penalty');
   const ov = $('overlay');
@@ -735,7 +760,7 @@ function startLockout(kind) {
     if (!G) { ov.hidden = true; return; }
     const left = G.penaltyUntil - performance.now();
     if (left <= 0) { ov.hidden = true; $('mine').classList.remove('penalty'); return; }
-    $('pen-msg').textContent = WRONG_LOCK - left < 2000 ? 'Wrong symbol!' : '';
+    $('pen-msg').textContent = G.penaltyMs - left < 2000 ? 'Wrong symbol!' : '';
     $('pen-num').textContent = Math.ceil(left / 1000);
     lockRaf = requestAnimationFrame(tick);
   };

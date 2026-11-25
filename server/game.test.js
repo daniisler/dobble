@@ -412,3 +412,58 @@ test('the room creator can kick players out of the lobby, nobody else can, and n
   assert.equal(rooms.get(code).players.length, 2);
   a.close(); b.close(); c.close();
 });
+
+test('creator options: hand over the host role, lock the room, penalty length, start without waiting', async () => {
+  if (!server.listening) await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const common = (x, y) => x.find((s) => y.includes(s));
+  const a = await client(port), b = await client(port), c = await client(port);
+  a.sendj({ t: 'create', name: 'Ann' });
+  const ja = await a.next('joined'); const code = (await a.next('lobby')).code;
+  b.sendj({ t: 'join', code, name: 'Bob' }); const jb = await b.next('joined');
+
+  // lock: only the creator can; new players are refused, a seat holder can still resume
+  b.sendj({ t: 'lock', v: true });
+  a.sendj({ t: 'lock', v: true });
+  assert.equal((await a.next('lobby', (m) => m.locked)).locked, true);
+  c.sendj({ t: 'join', code, name: 'Cy' });
+  assert.match((await c.next('error')).msg, /locked/);
+  a.sendj({ t: 'lock', v: false });
+  await a.next('lobby', (m) => !m.locked);
+  c.sendj({ t: 'join', code, name: 'Cy' }); const jc = await c.next('joined');
+
+  // penalty length: 1-5 whole seconds, creator only, it reaches the start message
+  b.sendj({ t: 'setpenalty', ms: 1000 });
+  a.sendj({ t: 'setpenalty', ms: 7000 });
+  a.sendj({ t: 'setpenalty', ms: 1500 });
+  a.sendj({ t: 'setpenalty', ms: 2000 });
+  assert.equal((await a.next('lobby', (m) => m.penaltyMs === 2000)).penaltyMs, 2000);
+
+  // host hand-over: only the creator, not to oneself
+  b.sendj({ t: 'host', id: jb.you });
+  a.sendj({ t: 'host', id: ja.you });
+  a.sendj({ t: 'host', id: jb.you });
+  assert.equal((await a.next('lobby', (m) => m.creator === jb.you)).creator, jb.you);
+  a.sendj({ t: 'setpenalty', ms: 4000 });                      // Ann is no longer the creator: ignored
+  b.sendj({ t: 'setstack', n: 1 });
+  await b.next('lobby', (m) => m.stack === 1);
+
+  // start now: Bob (host) and Ann are ready, Cy is not: Cy sits this game out
+  c.sendj({ t: 'startnow' });                                  // ignored, Cy is not the host
+  a.sendj({ t: 'ready', v: true });
+  await b.next('lobby', (m) => m.players.find((p) => p.id === ja.you).ready);
+  b.sendj({ t: 'startnow' });
+  const sb = await b.next('start'), sa = await a.next('start');
+  assert.equal(sb.penaltyMs, 2000);
+  assert.deepEqual(sb.players.map((p) => p.id).sort(), [ja.you, jb.you].sort());
+  const sat = await c.next('lobby', (m) => m.state === 'playing');
+  assert.equal(sat.players.find((p) => p.id === jc.you).sit, true);
+  // the sitter cannot play; the players can finish, and only they get the results
+  c.sendj({ t: 'play', i: 0, s: 1 });
+  b.sendj({ t: 'play', i: 0, s: common(sb.stack[0], sb.center) });
+  const end = await b.next('end'); await a.next('end');
+  assert.equal(end.ranking.length, 2);
+  const back = await c.next('lobby', (m) => m.state === 'lobby' && m.games === 1);
+  assert.ok(back.players.every((p) => !p.sit));
+  a.close(); b.close(); c.close();
+});

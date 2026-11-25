@@ -122,7 +122,7 @@ What you see while playing:
 - Your own card has a bold ring and a label; the centre card is ringed in the **colour of the player who played it**, with
   a label saying who that was. The symbol that matched gets a thin ring in the same colour.
 - The bar at the top shows every player's colour and the number of cards they have left.
-- **Wrong symbol:** a 3 second pause ("Wrong symbol!" for the first two seconds), counted as a miss.
+- **Wrong symbol:** a pause of 3 seconds by default (the room creator can choose 1 to 5 seconds; "Wrong symbol!" shows for the first two seconds), counted as a miss.
 - **"Alice was faster!":** if your symbol was right a moment ago but another player has just covered that card (within one
   second), a big banner at the top says so. There is no penalty, no pause and no miss: just play on.
 - The room creator can **cancel** a countdown or a running game; everybody returns to the lobby.
@@ -147,7 +147,21 @@ The room creator (marked with a star in the lobby) chooses:
   presets for large ones. If the setting is too high for the number of players the game does not start and the lobby says
   what to change. Choosing a smaller deck lowers the number automatically.
 
-Changing the deck size, the images or the cards per player makes everybody click **Ready** again.
+- **Penalty for a wrong symbol.** 1 to 5 seconds (default 3). It is enforced by the server, with the chosen length.
+
+Changing the deck size, the images, the cards per player or the penalty makes everybody click **Ready** again.
+
+The creator also has these controls in the lobby:
+
+- **Kick** removes a player (they can join again with the code, unless the room is locked).
+- **Make host** hands the creator role to another player (after a confirmation). The new host gets all the creator's controls;
+  the custom-image sets stay with the account that created the room.
+- **Lock room** stops anybody new from joining (shown to everybody as "This room is locked"). Players who lost their connection
+  can still come back to their seat. Click again to unlock.
+- **Start now** appears when somebody is not ready (or is reconnecting): the game starts at once with the players who are
+  ready, plus the creator, and the others **sit this game out** ("sitting out" in the lobby, they cannot play and get no
+  results screen) and take part in the next round. The cards-per-player limit is checked against the players who play.
+- **Cancel** stops a countdown or a running game for everybody.
 
 ## Accounts and custom images
 

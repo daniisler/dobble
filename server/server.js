@@ -173,9 +173,13 @@ class Room {
     this.recent = [];      // recent centre-card changes: {prev card, at, by}
     this.games = 0;        // finished games in this room (cancelled ones do not count)
     this.wins = {};        // player id -> number of games won in this room
+    this.locked = false;   // creator closed the room for new players
+    this.penaltyMs = PENALTY_MS;   // lockout after a wrong symbol (creator's choice, 1-5 s)
   }
   get n() { return this.q * this.q + this.q + 1; }
-  maxStack() { return Math.floor((this.n - 1) / Math.max(1, this.players.length)); }   // one card stays in the middle
+  // the players of the current game (when the creator started without waiting, the others sit this game out)
+  get playing() { return this.players.filter((p) => !p.sit); }
+  maxStack(k = this.players.length) { return Math.floor((this.n - 1) / Math.max(1, k)); }   // one card stays in the middle
   dropImage(url) {
     let changed = false;
     for (const [slot, u] of Object.entries(this.images)) if (u === url) { delete this.images[slot]; changed = true; }
@@ -188,12 +192,17 @@ class Room {
   lobbyMsg() {
     return {
       t: 'lobby', code: this.code, state: this.state, creator: this.creator, images: this.images, q: this.q, n: this.n, stack: this.stackSize, maxStack: this.maxStack(),
-      games: this.games, players: this.players.map(p => ({ id: p.id, name: p.name, ready: p.ready, away: p.away, wins: this.wins[p.id] || 0 }))
+      locked: this.locked, penaltyMs: this.penaltyMs,
+      games: this.games, players: this.players.map(p => ({ id: p.id, name: p.name, ready: p.ready, away: p.away, sit: p.sit, wins: this.wins[p.id] || 0 }))
     };
+  }
+  broadcastActive(obj) {
+    const s = JSON.stringify(obj);
+    for (const p of this.playing) if (p.ws.readyState === 1) p.ws.send(s);
   }
   pushLobby() { this.broadcast(this.lobbyMsg()); }
   add(ws, name) {
-    const p = { ws, id: this.nextId++, secret: crypto.randomBytes(12).toString('hex'), away: false, graceTimer: null, name, ready: false, stack: [], played: 0, penaltyUntil: 0, misses: 0, lastPlayAt: 0, bestMs: Infinity };
+    const p = { ws, id: this.nextId++, secret: crypto.randomBytes(12).toString('hex'), away: false, sit: false, graceTimer: null, name, ready: false, stack: [], played: 0, penaltyUntil: 0, misses: 0, lastPlayAt: 0, bestMs: Infinity };
     this.players.push(p);
     ws.player = p; ws.room = this;
     if (this.creator === null) this.creator = p.id;
@@ -231,11 +240,11 @@ class Room {
     p.ws = ws; p.away = false;
     ws.player = p; ws.room = this;
     send(ws, { t: 'joined', you: p.id, code: this.code, secret: p.secret, state: this.state, resumed: true });
-    if (this.state === 'playing') {
+    if (this.state === 'playing' && !p.sit) {
       send(ws, {
-        t: 'start', you: p.id, n: this.n, creator: this.creator, images: this.images, center: this.center, stack: p.stack, total: p.stack.length,
-        players: this.players.map(q => ({ id: q.id, name: q.name })),
-        resume: { played: p.played, left: this.players.map(q => [q.id, q.stack.length - q.played]), penaltyMs: Math.max(0, p.penaltyUntil - Date.now()) }
+        t: 'start', you: p.id, n: this.n, creator: this.creator, images: this.images, center: this.center, stack: p.stack, total: p.stack.length, penaltyMs: this.penaltyMs,
+        players: this.playing.map(q => ({ id: q.id, name: q.name })),
+        resume: { played: p.played, left: this.playing.map(q => [q.id, q.stack.length - q.played]), penaltyMs: Math.max(0, p.penaltyUntil - Date.now()) }
       });
     } else this.pushLobby();   // (in a running game the lobby screen must not be pushed over the game)
   }
@@ -248,7 +257,8 @@ class Room {
     if (this.creator === p0.id && this.players.length) this.creator = this.players[0].id;
     if (!this.players.length) { clearTimeout(this.timer); rooms.delete(this.code); return; }
     if (this.state === 'playing') {
-      this.broadcast(this.progressMsg());
+      if (!this.playing.length) { this.cancel(); return; }       // everybody who was playing has left
+      this.broadcastActive(this.progressMsg());
     } else {
       if (this.state === 'countdown') this.cancelCountdown();
       this.pushLobby();
@@ -256,24 +266,35 @@ class Room {
     }
   }
   checkStart() {
-    if (this.state === 'lobby' && this.players.length && this.players.every(p => p.ready)) {
-      if (this.stackSize > this.maxStack()) {
-        for (const p of this.players) p.ready = false;
-        this.broadcast({ t: 'notice', msg: `${this.players.length} player${this.players.length === 1 ? '' : 's'} × ${this.stackSize} cards needs more than the ${this.n - 1} cards this deck can deal. Lower the cards per player (max ${this.maxStack()}) or choose a bigger deck.` });
-        this.pushLobby();
-        return;
-      }
-      this.state = 'countdown';
-      this.pushLobby();
-      let n = COUNTDOWN;
-      const tick = () => {
-        if (n > 0) { this.broadcast({ t: 'count', n }); n--; this.timer = setTimeout(tick, 1000); }
-        else this.start();
-      };
-      tick();
-    }
+    if (this.state === 'lobby' && this.players.length && this.players.every(p => p.ready)) this.begin();
   }
-  cancelCountdown() { clearTimeout(this.timer); this.state = 'lobby'; this.broadcast({ t: 'count', n: 0 }); }
+  // the creator starts without waiting for players who are not ready (or are reconnecting): they sit this game out
+  startNow() {
+    if (this.state !== 'lobby') return;
+    const host = this.players.find((p) => p.id === this.creator);
+    if (!host || host.away) return;
+    host.ready = true;
+    for (const p of this.players) p.sit = !p.ready || p.away;
+    this.begin();
+  }
+  begin() {
+    const k = this.playing.length;
+    if (this.stackSize > this.maxStack(k)) {
+      for (const p of this.players) { p.ready = false; p.sit = false; }
+      this.broadcast({ t: 'notice', msg: `${k} player${k === 1 ? '' : 's'} × ${this.stackSize} cards needs more than the ${this.n - 1} cards this deck can deal. Lower the cards per player (max ${this.maxStack(k)}) or choose a bigger deck.` });
+      this.pushLobby();
+      return;
+    }
+    this.state = 'countdown';
+    this.pushLobby();
+    let n = COUNTDOWN;
+    const tick = () => {
+      if (n > 0) { this.broadcast({ t: 'count', n }); n--; this.timer = setTimeout(tick, 1000); }
+      else this.start();
+    };
+    tick();
+  }
+  cancelCountdown() { clearTimeout(this.timer); this.state = 'lobby'; for (const p of this.players) p.sit = false; this.broadcast({ t: 'count', n: 0 }); }
   // the creator stops a countdown or a running game; everybody goes back to the lobby
   cancel() {
     if (this.state !== 'countdown' && this.state !== 'playing') return;
@@ -281,7 +302,7 @@ class Room {
     if (wasPlaying) db.logEvent('game_cancelled');
     clearTimeout(this.timer);
     this.state = 'lobby';
-    for (const p of this.players) p.ready = false;
+    for (const p of this.players) { p.ready = false; p.sit = false; }
     this.broadcast({ t: 'count', n: 0 });
     this.broadcast({ t: 'cancelled', playing: wasPlaying });
     this.pushLobby();
@@ -292,25 +313,26 @@ class Room {
     this.center = deck.pop();
     this.startedAt = Date.now();
     this.recent = [];
-    for (const p of this.players) { p.stack = deck.splice(0, per); p.played = 0; p.penaltyUntil = 0; p.misses = 0; p.lastPlayAt = this.startedAt; p.bestMs = Infinity; }
+    for (const p of this.players) { p.stack = p.sit ? [] : deck.splice(0, per); p.played = 0; p.penaltyUntil = 0; p.misses = 0; p.lastPlayAt = this.startedAt; p.bestMs = Infinity; }
     this.state = 'playing';
     db.logEvent('game_started');
     // each player is sent their own stack up front so clicks can be shown instantly (client-side prediction)
-    for (const p of this.players) {
+    for (const p of this.playing) {
       send(p.ws, {
-        t: 'start', you: p.id, n: this.n, creator: this.creator, images: this.images, center: this.center, stack: p.stack, total: per,
-        players: this.players.map(q => ({ id: q.id, name: q.name }))
+        t: 'start', you: p.id, n: this.n, creator: this.creator, images: this.images, center: this.center, stack: p.stack, total: per, penaltyMs: this.penaltyMs,
+        players: this.playing.map(q => ({ id: q.id, name: q.name }))
       });
     }
+    for (const p of this.players) if (p.sit) send(p.ws, this.lobbyMsg());     // players sitting this game out see the lobby with a note
   }
   progressMsg(extra) {
-    return Object.assign({ t: 'prog', creator: this.creator, left: this.players.map(p => [p.id, p.stack.length - p.played]) }, extra);
+    return Object.assign({ t: 'prog', creator: this.creator, left: this.playing.map(p => [p.id, p.stack.length - p.played]) }, extra);
   }
   // Every click goes through here, and the server alone decides what it was: a correct play, a wrong symbol
   // (3 s lockout, counted as a miss) or "too slow" (right a moment ago, somebody else was faster: no penalty at all, play on).
   play(p, idx, sym) {
     const now = Date.now();
-    if (this.state !== 'playing' || idx !== p.played || now < p.penaltyUntil) return send(p.ws, { t: 'rej', i: idx });
+    if (this.state !== 'playing' || p.sit || idx !== p.played || now < p.penaltyUntil) return send(p.ws, { t: 'rej', i: idx });
     const card = p.stack[idx];
     if (!card) return send(p.ws, { t: 'rej', i: idx });
     if (card.includes(sym) && this.center.includes(sym)) {
@@ -322,9 +344,9 @@ class Room {
       this.center = card;
       const won = p.played === p.stack.length;
       // single broadcast: new centre card + everyone's remaining counts
-      this.broadcast({
+      this.broadcastActive({
         t: 'play', by: p.id, i: idx, card, s: sym,
-        left: this.players.map(q => [q.id, q.stack.length - q.played])
+        left: this.playing.map(q => [q.id, q.stack.length - q.played])
       });
       if (won) this.end(p);
       return;
@@ -334,24 +356,24 @@ class Room {
     if (faster) {
       return send(p.ws, { t: 'rej', i: idx, why: 'late', by: faster.by });
     }
-    p.penaltyUntil = now + PENALTY_MS - SLACK_MS;
+    p.penaltyUntil = now + this.penaltyMs - SLACK_MS;
     p.misses++;
-    send(p.ws, { t: 'rej', i: idx, why: 'wrong', ms: PENALTY_MS });
+    send(p.ws, { t: 'rej', i: idx, why: 'wrong', ms: this.penaltyMs });
   }
   end(winner) {
     this.state = 'lobby';
     this.games++;
     this.wins[winner.id] = (this.wins[winner.id] || 0) + 1;
     const total = winner.lastPlayAt - this.startedAt;
-    const ranking = this.players.map(p => ({
+    const ranking = this.playing.map(p => ({
       id: p.id, name: p.name, left: p.stack.length - p.played, played: p.played, misses: p.misses, wins: this.wins[p.id] || 0,
       avgMs: p.played ? Math.round((p.lastPlayAt - this.startedAt) / p.played) : null,
       bestMs: p.played ? p.bestMs : null, lastPlayAt: p.lastPlayAt,
     })).sort((a, b) => a.left - b.left || a.lastPlayAt - b.lastPlayAt);
     db.logEvent('game_finished');
-    db.logGame({ cards: this.n, players: this.players.length, stack: this.stackSize, durationMs: total, misses: this.players.reduce((n, p) => n + p.misses, 0), customImages: Object.keys(this.images).filter((k) => +k < this.n).length });
-    for (const p of this.players) p.ready = false;
-    this.broadcast({ t: 'end', winner: winner.id, totalMs: total, cards: this.n, games: this.games, ranking });
+    db.logGame({ cards: this.n, players: this.playing.length, stack: this.stackSize, durationMs: total, misses: this.playing.reduce((n, p) => n + p.misses, 0), customImages: Object.keys(this.images).filter((k) => +k < this.n).length });
+    this.broadcastActive({ t: 'end', winner: winner.id, totalMs: total, cards: this.n, games: this.games, ranking });
+    for (const p of this.players) { p.ready = false; p.sit = false; }
     this.pushLobby();
   }
 }
@@ -389,6 +411,7 @@ wss.on('connection', (ws, req) => {
           r = rooms.get(String(m.code || '').toUpperCase().trim());
           if (!r) return send(ws, { t: 'error', msg: 'Room not found' });
           if (r.state !== 'lobby') return send(ws, { t: 'error', msg: 'Game already running' });
+          if (r.locked) return send(ws, { t: 'error', msg: 'This room is locked by its creator' });
         }
         db.logEvent(m.t === 'create' ? 'room_created' : 'room_joined');
         if (m.t === 'create' && ws.user) { r.ownerUserId = ws.user.id; r.setId = db.latestSet(ws.user.id); r.images = db.loadSelections(r.setId); }
@@ -436,6 +459,27 @@ wss.on('connection', (ws, req) => {
         } catch (e) { send(ws, { t: 'editerr', msg: e.message }); }
         return;
       }
+      case 'host': {                                // hand the room over to somebody else
+        if (!room || room.state !== 'lobby' || room.creator !== p.id) return;
+        const target = room.players.find((x) => x.id === m.id);
+        if (!target || target === p || target.away) return;
+        room.creator = target.id;
+        room.pushLobby();
+        room.sendSets(target.ws);                   // (only does something when the new host owns the room's images)
+        return;
+      }
+      case 'lock':
+        if (!room || room.state !== 'lobby' || room.creator !== p.id) return;
+        room.locked = !!m.v; room.pushLobby(); return;
+      case 'setpenalty':
+        if (!room || room.state !== 'lobby' || room.creator !== p.id) return;
+        if (!Number.isInteger(m.ms) || m.ms < 1000 || m.ms > 5000 || m.ms % 1000) return;
+        room.penaltyMs = m.ms;
+        for (const pl of room.players) pl.ready = false;
+        room.pushLobby(); return;
+      case 'startnow':
+        if (!room || room.state !== 'lobby' || room.creator !== p.id) return;
+        room.startNow(); return;
       case 'kick': {
         // the creator removes somebody from the lobby (not during a countdown or a game, not themselves)
         if (!room || room.state !== 'lobby' || room.creator !== p.id) return;
