@@ -160,3 +160,6 @@ input, textarea, select { -webkit-user-select:text; user-select:text; }   /* typ
 #setbar { display:flex; flex-direction:column; gap:6px; }
 #setbar label { font-weight:700; }
 #setbar select { flex:2.5; }
+
+#playerlist li { align-items:center; gap:8px; }
+#playerlist .kick { padding:3px 10px; margin-left:6px; }

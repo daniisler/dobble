@@ -159,6 +159,10 @@ function onMsg(m) {
       show('home'); $('homeerr').textContent = 'Your room is no longer available.';
       break;
     case 'error': $('homeerr').textContent = m.msg; break;
+    case 'kicked':
+      setSeat(null); mySets = null; me = null; lobby = null; G = null; hideConn(); show('home');
+      $('homeerr').textContent = 'The room creator removed you from the room.';
+      break;
     case 'sets': mySets = m; renderSets(); break;
     case 'editerr': $('editorerr').textContent = m.msg; break;
     case 'notice': setNotice(m.msg); break;
@@ -265,6 +269,12 @@ function showLobby() {
     // from the second finished game on, show the wins in this room
     li.children[1].textContent = (m.games >= 2 ? `🏆 ${p.wins}` + (p.ready ? ' · ' : '') : '') + (p.away ? 'reconnecting…' : p.ready ? 'ready' : '');
     if (p.ready) li.children[1].className = 'ready';
+    if (isCreator && p.id !== me) {                 // the creator can remove players from the lobby
+      const k = document.createElement('button');
+      k.className = 'secondary small kick'; k.textContent = 'Kick'; k.title = `Remove ${p.name} from the room`;
+      k.onclick = () => send({ t: 'kick', id: p.id });
+      li.children[1].append(' ', k);
+    }
     $('playerlist').appendChild(li);
   }
   // deck size: the creator picks, everybody sees

@@ -436,6 +436,17 @@ wss.on('connection', (ws, req) => {
         } catch (e) { send(ws, { t: 'editerr', msg: e.message }); }
         return;
       }
+      case 'kick': {
+        // the creator removes somebody from the lobby (not during a countdown or a game, not themselves)
+        if (!room || room.state !== 'lobby' || room.creator !== p.id) return;
+        const target = room.players.find((x) => x.id === m.id);
+        if (!target || target === p) return;
+        clearTimeout(target.graceTimer);
+        send(target.ws, { t: 'kicked' });
+        const tws = target.ws;
+        room.remove(tws);
+        return;
+      }
       case 'setdeck':
         if (!room || room.state !== 'lobby' || room.creator !== p.id || !ORDERS.includes(m.q)) return;
         room.q = m.q;

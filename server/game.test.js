@@ -11,7 +11,7 @@ process.env.ADMIN_PASSWORD = 's3cret:with:colons';
 process.env.CONNECTION_TIMEOUT_SECONDS = '7';
 const WebSocket = require('ws');
 const { generateDeck } = require('./deck');
-const { server } = require('./server');
+const { server, rooms } = require('./server');
 test.after(() => { server.closeAllConnections(); server.close(); });
 
 test('every deck size is a perfect deck (any two cards share exactly one symbol)', () => {
@@ -384,4 +384,31 @@ test('an account can keep several sets of picks and switch between them', async 
   // deleting an image removes it from every set
   assert.equal((await fetch(base + '/api/images/' + i2.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } })).status, 200);
   c.close();
+});
+
+test('the room creator can kick players out of the lobby, nobody else can, and not during a game', async () => {
+  if (!server.listening) await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const a = await client(port), b = await client(port), c = await client(port);
+  a.sendj({ t: 'create', name: 'Ann' });
+  const ja = await a.next('joined'); const code = (await a.next('lobby')).code;
+  b.sendj({ t: 'join', code, name: 'Bob' }); const jb = await b.next('joined');
+  c.sendj({ t: 'join', code, name: 'Cy' }); const jc = await c.next('joined');
+  b.sendj({ t: 'kick', id: jc.you });                         // a non-creator is ignored
+  a.sendj({ t: 'kick', id: ja.you });                         // the creator cannot kick themselves
+  a.sendj({ t: 'kick', id: jb.you });
+  await b.next('kicked');
+  const l = await a.next('lobby', (m) => m.players.length === 2 && m.players[1].name === 'Cy');
+  assert.deepEqual(l.players.map((p) => p.name), ['Ann', 'Cy']);
+  // after the kick Bob can join again as a new player (a kick is not a ban) but has no seat to resume
+  b.sendj({ t: 'resume', code, id: jb.you, secret: jb.secret });
+  await b.next('resumefail');
+  // no kicking while a game runs
+  a.sendj({ t: 'ready', v: true }); c.sendj({ t: 'ready', v: true });
+  await a.next('start'); await c.next('start');
+  a.sendj({ t: 'kick', id: jc.you });
+  c.sendj({ t: 'ping', c: 1 });
+  await c.next('pong');
+  assert.equal(rooms.get(code).players.length, 2);
+  a.close(); b.close(); c.close();
 });
