@@ -11,7 +11,6 @@ const { adminAuth, renderAdmin } = require('./admin');
 const APP_NAME = (process.env.APP_NAME || 'MatchMe').trim().slice(0, 40) || 'MatchMe';   // shown in titles and headings
 const PORT = +process.env.PORT || 8003;
 const PUBLIC = path.join(__dirname, '..', 'public');
-const MAX_PLAYERS = 8;
 const DEFAULT_STACK = 15;   // cards per player unless the creator chooses otherwise
 const PENALTY_MS = 3000;       // lockout after a wrong symbol
 const LATE_WINDOW_MS = 1000;   // how long after another player's card a click on the old centre card still counts as "too slow"
@@ -338,7 +337,6 @@ wss.on('connection', (ws, req) => {
           r = rooms.get(String(m.code || '').toUpperCase().trim());
           if (!r) return send(ws, { t: 'error', msg: 'Room not found' });
           if (r.state !== 'lobby') return send(ws, { t: 'error', msg: 'Game already running' });
-          if (r.players.length >= MAX_PLAYERS) return send(ws, { t: 'error', msg: 'Room is full' });
         }
         db.logEvent(m.t === 'create' ? 'room_created' : 'room_joined');
         if (m.t === 'create' && ws.user) { r.ownerUserId = ws.user.id; r.images = db.loadSelections(ws.user.id); }

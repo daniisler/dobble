@@ -5,7 +5,7 @@ Every card shows a handful of symbols, and any two cards share **exactly one** s
 that also appears on the card in the middle; the first player to get rid of all their cards wins.
 
 - Runs in any modern browser, phone or desktop. Nothing to install for players.
-- Rooms with 4-letter codes, 1 to 8 players per room, any number of rooms at the same time.
+- Rooms with 4-letter codes, any number of players per room (the lobby shows a warning above 6), any number of rooms at the same time.
 - 10 deck sizes from 7 to 273 cards and a configurable number of cards per player.
 - Accounts for custom images: upload your own pictures and use them as the symbols.
 - Win tally per room, detailed results after every game.

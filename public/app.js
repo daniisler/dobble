@@ -269,6 +269,8 @@ function showLobby() {
   btn.classList.toggle('on', !!(mine && mine.ready));
   btn.textContent = mine && mine.ready ? 'Ready ✓' : 'Ready';
   $('lobbystatus').textContent = m.state === 'countdown' ? 'Starting…' : 'The game starts when everyone is ready.';
+  $('crowdwarn').hidden = np <= 6;
+  $('crowdwarn').textContent = `${np} players: with more than 6 players the game can get crowded.`;
   $('lobbyerr').textContent = lobbyNotice;
   // make sure the full image set for this room is decoded before the player can ready up
   const need = roomUrls(m).filter((u) => !ready.has(u));

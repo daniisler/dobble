@@ -150,3 +150,8 @@ body, .card, .card img, #game { -webkit-user-select:none; user-select:none; -web
 #game ::selection, .card ::selection { background:transparent; }
 #game ::-moz-selection, .card ::-moz-selection { background:transparent; }
 input, textarea, select { -webkit-user-select:text; user-select:text; }   /* typing must keep working (iOS blocks it otherwise) */
+
+/* warning box, same look as Bootstrap's .alert-warning */
+.alert { width:min(560px,100%); padding:12px 16px; border:1px solid; border-radius:8px; font-weight:600; text-align:left; }
+.alert-warning { color:#664d03; background:#fff3cd; border-color:#ffecb5; }
+:root:not([data-theme="light"]) .alert-warning { color:#ffda6a; background:#332701; border-color:#664d03; }
