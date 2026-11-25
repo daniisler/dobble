@@ -44,7 +44,7 @@ The name is a setting (`APP_NAME`, see below); "MatchMe" is just the default.
 Requires **Node.js 22.13 or newer** (the Docker image uses Node 24).
 
 ```
-npm install              # also downloads the picture editor's background-removal model (about 28 MB)
+npm install              # also downloads the picture editor's background-removal model (about 33 MB)
 cp .env.example .env     # optional: name, admin login, timeouts, ... (see below)
 npm start                # http://localhost:8003
 ```
@@ -216,14 +216,14 @@ the phone screen; *Start over* goes back to the original picture, *Undo* (Ctrl+Z
 
 The result is sent as a 512 × 512 PNG with transparency; the server shrinks it to a small WebP (which keeps the transparency).
 
-**How the background removal works.** It uses [SlimSAM](https://huggingface.co/Xenova/slimsam-77-uniform) (a compact version
-of Meta's Segment Anything model, Apache-2.0), run inside the browser by [Transformers.js](https://github.com/huggingface/transformers.js)
+**How the background removal works.** It uses [MobileSAM](https://github.com/ChaoningZhang/MobileSAM) (a fast, compact version
+of Meta's Segment Anything model, Apache-2.0; ONNX conversion by [HRusby](https://huggingface.co/HRusby/mobilesam-onnx)), run inside the browser by [Transformers.js](https://github.com/huggingface/transformers.js)
 (Apache-2.0) and ONNX Runtime Web (MIT). The model runs **on the user's device**: pictures are never sent to a model server or
-any other site. The files (about 28 MB: the model 14 MB, the WebAssembly runtime 14 MB) are downloaded **when the app is
+any other site. The files (about 33 MB: the model 19 MB, the WebAssembly runtime 14 MB) are downloaded **when the app is
 installed**, by `scripts/fetch-model.js` (it runs after `npm install`, also while building the Docker image; pinned to exact
 versions and checked by SHA-256) and served by the app itself from `public/models` and `public/vendor` (both git-ignored). The
 browser only downloads them the first time somebody opens *Remove background*, then keeps them in its cache. Looking at a
-picture takes about 4 seconds on a fast computer with 4 threads, but **30 seconds to several minutes on a phone**, especially
+picture takes about 2 seconds on a fast computer with 4 threads (about 4 seconds with one thread), but **10 seconds to a minute or more on a phone**, especially
 when the page is not cross-origin isolated (plain `http://` instead of HTTPS, or the `Cross-Origin-*` headers removed by the proxy):
 then only one thread is used. While it works the editor shows a spinner with the elapsed time, a **Cancel** button and a
 **Use the simple method instead** button (instant, colour based); the model runs in a background worker so the page never
@@ -415,12 +415,18 @@ statistics.
 - **Node warns "SQLite is an experimental feature":** harmless; the Docker image hides it.
 - **The picture editor says "Simple mode":** the model files are not installed. Run `npm run fetch-model` (needs internet; for
   Docker rebuild with `docker compose build --no-cache`) and check that `public/models` and `public/vendor` exist.
+- **Background removal uses only one thread:** the overlay says so while it analyses. Threads need a secure, cross-origin
+  isolated page: HTTPS (or `localhost`) and the `Cross-Origin-Opener-Policy: same-origin` / `Cross-Origin-Embedder-Policy:
+  require-corp` headers the app sends (check `curl -I https://your-site/` and that nginx does not remove them). Up to 4 threads are
+  used: measured on a 16-core machine (SlimSAM, the model used before), 1 thread took 9.0 s, 2 took 5.6 s, 4 took 4.3 s, and 6, 8
+  and 12 were slower again, so more is not better. MobileSAM takes about half as long (4.0 s with one thread, 1.8 s with 4). To try another value add `?threads=N` to the page address (and `?model=owner/name` for another model that is installed under
+  `public/models`).
 - **Background removal is slow on a phone:** the first picture takes a few seconds to analyse (the model runs on the device);
   later clicks are quick. Behind nginx, do not strip the `Cross-Origin-*` headers: without them the browser uses one thread.
 
 ## Credits and licence
 
 Game code: see [LICENSE](LICENSE). Default images: Twemoji, © Twitter, Inc. and other contributors, CC-BY 4.0.
-Image processing by [sharp](https://sharp.pixelplumbing.com/) (Apache-2.0). Picture editor background removal: SlimSAM
-(Apache-2.0, Zigeng Chen et al., ONNX conversion by Xenova), [Transformers.js](https://github.com/huggingface/transformers.js)
+Image processing by [sharp](https://sharp.pixelplumbing.com/) (Apache-2.0). Picture editor background removal: MobileSAM
+(Apache-2.0, Chaoning Zhang et al., ONNX conversion by HRusby), [Transformers.js](https://github.com/huggingface/transformers.js)
 (Apache-2.0) and [ONNX Runtime Web](https://onnxruntime.ai/) (MIT).

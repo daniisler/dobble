@@ -480,6 +480,6 @@ test('cross-origin isolation headers (for the multi-threaded editor model) and f
     const w = await fetch(base + '/vendor/ort-wasm-simd-threaded.wasm');
     assert.equal(w.status, 200); assert.equal(w.headers.get('content-type'), 'application/wasm');
     assert.match(w.headers.get('cache-control'), /max-age/);
-    assert.equal((await fetch(base + '/models/Xenova/slimsam-77-uniform/config.json')).headers.get('content-type'), 'application/json');
+    assert.equal((await fetch(base + '/models/HRusby/mobilesam-onnx/config.json')).headers.get('content-type'), 'application/json');
   }
 });

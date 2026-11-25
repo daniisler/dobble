@@ -1,5 +1,5 @@
 'use strict';
-// Click-to-select for the picture editor, done by a real segmentation model (SlimSAM, a compact version of Meta's Segment
+// Click-to-select for the picture editor, done by a real segmentation model (MobileSAM, a fast, compact version of Meta's Segment
 // Anything model, Apache-2.0) that runs inside the browser through Transformers.js and ONNX Runtime (WebAssembly).
 // Nothing is sent anywhere: the model files are served by this app (public/models, public/vendor, fetched by
 // scripts/fetch-model.js) and are only downloaded when somebody first uses the "Remove background" tool.
@@ -8,7 +8,8 @@
 //   Segmenter.prepare(canvas, id)    -> Promise            looks at a picture once (a few seconds); `id` names its version
 //   Segmenter.segment(x, y, id)      -> Promise<{masks:[Uint8Array], iou:[number], w, h}>   candidates for a click, best first
 const Segmenter = (() => {
-  const MODEL = 'Xenova/slimsam-77-uniform';
+  const asked = new URLSearchParams(location.search).get('model');                   // ?model=owner/name tries another installed model
+  const MODEL = /^[\w.-]+\/[\w.-]+$/.test(asked || '') ? asked : 'HRusby/mobilesam-onnx';
   let T = null, model = null, processor = null, loading = null, failed = false;
   let prepared = { id: null, promise: null, image: null, emb: null };
   let threads = 1;
@@ -27,7 +28,8 @@ const Segmenter = (() => {
         env.allowRemoteModels = false; env.allowLocalModels = true; env.localModelPath = '/models/';
         env.backends.onnx.wasm.wasmPaths = { mjs: '/vendor/ort-wasm-simd-threaded.mjs', wasm: '/vendor/ort-wasm-simd-threaded.wasm' };
         // several threads need cross-origin isolation, which the server turns on
-        threads = self.crossOriginIsolated ? Math.max(1, Math.min(4, navigator.hardwareConcurrency || 2)) : 1;
+        const asked = +new URLSearchParams(location.search).get('threads');          // ?threads=N for trying other values
+        threads = !self.crossOriginIsolated ? 1 : asked >= 1 ? Math.min(32, asked) : Math.max(1, Math.min(4, navigator.hardwareConcurrency || 2));
         env.backends.onnx.wasm.numThreads = threads;
         env.backends.onnx.wasm.proxy = true;     // run the model in a background worker, so the page (spinner, Cancel button) stays responsive
         const files = {};

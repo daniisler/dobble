@@ -226,8 +226,8 @@ const ImageEditor = (() => {
         if (modelState !== 'idle') return modelPromise;
         modelState = 'loading';
         const g = jobGen;
-        if (tool === 'cut') setBusy('Loading the background-removal model…', 'First time only: about 28 MB are downloaded, later it starts at once.');
-        modelPromise = Segmenter.load((t) => { if (tool === 'cut' && g === jobGen) setBusy(t, 'First time only: about 28 MB are downloaded, later it starts at once.'); }).then((ok) => {
+        if (tool === 'cut') setBusy('Loading the background-removal model…', 'First time only: about 33 MB are downloaded, later it starts at once.');
+        modelPromise = Segmenter.load((t) => { if (tool === 'cut' && g === jobGen) setBusy(t, 'First time only: about 33 MB are downloaded, later it starts at once.'); }).then((ok) => {
           modelState = ok ? 'ready' : 'fallback'; modelMissing = !ok;
           $('cut-tol-label').hidden = ok;
           if (g === jobGen) setBusy(null);
@@ -249,7 +249,7 @@ const ImageEditor = (() => {
       }
       function analysingNote() {
         const i = Segmenter.info();
-        return 'The model looks at the whole picture once. A fast computer needs about 4 seconds, a phone often 30 seconds up to several minutes. Afterwards every click takes about half a second.'
+        return 'The model looks at the whole picture once. A fast computer needs about 2 seconds, a phone often 10 seconds up to a minute. Afterwards every click takes about half a second.'
           + (i.threads < 2 ? ` It is running on ONE thread${i.isolated ? '' : ' because this page is not cross-origin isolated (it needs HTTPS and the server\'s Cross-Origin headers)'}, which is the slow way.` : ` (${i.threads} threads)`);
       }
       // the instant colour-based method instead of the model, for slow devices
@@ -544,7 +544,7 @@ const ImageEditor = (() => {
         $('imged-hint').textContent = HINTS[t];
         ov.style.cursor = t === 'cut' ? 'crosshair' : t === 'crop' || t === 'place' ? 'grab' : 'none';
         if (t !== 'cut') setBusy(null);
-        if (t === 'cut') { if (modelState === 'idle') initModel(); else if (modelState === 'loading') setBusy('Loading the background-removal model…', 'First time only: about 28 MB are downloaded, later it starts at once.'); else if (modelState === 'ready') { readyStatus(); ensureEmbedding(); } else readyStatus(); }
+        if (t === 'cut') { if (modelState === 'idle') initModel(); else if (modelState === 'loading') setBusy('Loading the background-removal model…', 'First time only: about 33 MB are downloaded, later it starts at once.'); else if (modelState === 'ready') { readyStatus(); ensureEmbedding(); } else readyStatus(); }
         updateUI(); layout();
       }
       document.querySelectorAll('#imged [data-tool]').forEach((b) => { b.onclick = () => { if (tool !== 'place') setTool(b.dataset.tool); }; });
