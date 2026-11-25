@@ -73,6 +73,7 @@ the container).
 | `ADMIN_USER`                 | *(empty)*                     | User name for the [admin overview](#admin-overview-and-usage-statistics).                                                                                                        |
 | `ADMIN_PASSWORD`             | *(empty)*                     | Password for the admin overview. If user **or** password is empty, `/admin` does not exist (404).                                                                                |
 | `CONNECTION_TIMEOUT_SECONDS` | `5`                           | How long a player's connection may be silent before the browser shows "Connection lost". Range 2 to 120. See [Connection handling](#connection-handling).                        |
+| `RECONNECT_GRACE_SECONDS`    | `60`                          | How long a player who lost the connection keeps their seat in the room and can resume it. Range 5 to 600. See [Connection handling](#connection-handling).                       |
 | `TRUST_PROXY`                | *(unset)*                     | Set to `1` behind a reverse proxy so the rate limiter uses the client address from `X-Forwarded-For`. Leave unset when the app is exposed directly (the header could be forged). |
 | `DATA_DIR`                   | `./data` (Docker: `/data`)    | Folder for the SQLite database (`matchme.sqlite`) and the uploaded images.                                                                                                       |
 
@@ -250,9 +251,14 @@ To start over, delete the rows (`DELETE FROM events; DELETE FROM games;`).
 **In the game.** The browser pings the server several times per timeout period. If **nothing has come back for
 `CONNECTION_TIMEOUT_SECONDS`** (default 5), or a card you played has not been answered for that long, a *Connection lost*
 box appears ("The server is not responding"). It disappears by itself if the server answers again; its button returns to the
-start screen. If the connection actually closes, the box says you were disconnected from the room. A player who
-disconnects is removed from the room (if the room creator leaves, the next player becomes creator), and the game goes on for
-the others. To change the allowed silence, edit `CONNECTION_TIMEOUT_SECONDS` in `.env` and restart.
+start screen. The box has two buttons: **Reconnect** (drops the connection and takes your seat back at once) and
+**Back to start** (leaves the room). If the connection actually closes, the box says so and the browser keeps retrying by
+itself. Your seat is not given up: the server keeps it for **`RECONNECT_GRACE_SECONDS`** (default 60), the room, the running
+game and your cards stay as they are, and other players see you as "reconnecting…" in the lobby (you are un-readied).
+Reloading the page inside a room works the same way. If you do not return in time, or the room is gone, you land on the start
+screen. Leaving with the Leave button or *Back to start* frees the seat immediately. The seat is claimed with a secret that
+only your browser holds (kept in `sessionStorage`). The game goes on for the others while you are away, and if the room creator
+is away the role stays with them until the grace time runs out. To change the allowed silence, edit `CONNECTION_TIMEOUT_SECONDS` in `.env` and restart.
 
 **While loading.** The start screen cannot hang:
 

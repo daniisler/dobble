@@ -88,18 +88,33 @@ let G = null;   // game state
 // ------------------------------------------------------------ websocket
 let openWaiters = [];
 const whenConnected = () => (ws && ws.readyState === 1 ? Promise.resolve() : new Promise((r) => openWaiters.push(r)));
+// Our seat in a room ({code, id, secret}) is kept in sessionStorage: after a dropped connection or a page reload the
+// browser asks the server for the same seat back (the server holds it for RECONNECT_GRACE_SECONDS).
+let seat = null, reconnectTimer = 0;
+try { seat = JSON.parse(sessionStorage.getItem('seat') || 'null'); } catch { }
+function setSeat(v) { seat = v; try { v ? sessionStorage.setItem('seat', JSON.stringify(v)) : sessionStorage.removeItem('seat'); } catch { } }
+function backToStart() {
+  hideConn(); send({ t: 'leave' }); setSeat(null);
+  me = null; lobby = null; G = null; $('count').hidden = true; $('overlay').hidden = true; $('banner').hidden = true;
+  show('home');
+}
 function connect() {
+  if (ws && ws.readyState <= 1) return;
+  clearTimeout(reconnectTimer);
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   const mine = ws;
   const stuck = setTimeout(() => { if (mine.readyState === 0) mine.close(); }, 6000);   // a connection attempt that never answers is retried
-  ws.onopen = () => { clearTimeout(stuck); lastMsgAt = performance.now(); openWaiters.splice(0).forEach((r) => r()); };
+  ws.onopen = () => {
+    clearTimeout(stuck); lastMsgAt = performance.now(); openWaiters.splice(0).forEach((r) => r());
+    if (seat) mine.send(JSON.stringify({ t: 'resume', code: seat.code, id: seat.id, secret: seat.secret, token }));
+  };
   ws.onmessage = (e) => { lastMsgAt = performance.now(); onMsg(JSON.parse(e.data)); if (connShown === 'stall' && !playStuck()) hideConn(); };
   ws.onclose = () => {
     clearTimeout(stuck);
-    const wasInRoom = !$('home').classList.contains('active') && !$('loading').classList.contains('active');
-    me = null; lobby = null; G = null; $('count').hidden = true; $('overlay').hidden = true; $('banner').hidden = true;
-    if (wasInRoom) { show('home'); showConn('You were disconnected from the room. Please start again.', 'closed'); }
-    setTimeout(connect, 1000);
+    if (seat && $('loading').classList.contains('active') === false && !$('home').classList.contains('active')) {
+      showConn('Connection lost. Trying to reconnect to your room…', 'closed');   // the room, the game and our cards stay as they are
+    }
+    reconnectTimer = setTimeout(connect, 1000);
   };
 }
 const connected = () => !!ws && ws.readyState === 1;
@@ -113,10 +128,11 @@ let lastMsgAt = 0, connShown = null;
 function playStuck() { return !!(G && G.active && G.pending.length && G.pendingSince && performance.now() - G.pendingSince > STALL_MS); }
 function showConn(msg, kind) { connShown = kind; $('connmsg').textContent = msg; $('connlost').hidden = false; }
 function hideConn() { connShown = null; $('connlost').hidden = true; }
-$('connbtn').onclick = () => {
-  hideConn();
-  if (ws && ws.readyState === 1 && me != null) { try { ws.close(); } catch { } }   // a stalled connection: drop it and start fresh
-  else show('home');
+$('connbtn').onclick = backToStart;
+$('connretry').onclick = () => {
+  $('connmsg').textContent = 'Reconnecting…';
+  if (ws && ws.readyState === 1) { try { ws.close(); } catch { } }   // a stalled connection: drop it, the new one resumes our seat
+  else connect();
 };
 function startPings() {
   clearInterval(pingTimer);
@@ -131,7 +147,17 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { la
 
 function onMsg(m) {
   switch (m.t) {
-    case 'joined': me = m.you; break;
+    case 'joined':
+      me = m.you; setSeat({ code: m.code, id: m.you, secret: m.secret });
+      if (m.resumed) {
+        hideConn();
+        if (m.state !== 'playing') { G = null; $('overlay').hidden = true; $('banner').hidden = true; }   // the game ended or was cancelled meanwhile
+      }
+      break;
+    case 'resumefail':
+      setSeat(null); me = null; lobby = null; G = null; hideConn(); $('count').hidden = true; $('overlay').hidden = true; $('banner').hidden = true;
+      show('home'); $('homeerr').textContent = 'Your room is no longer available.';
+      break;
     case 'error': $('homeerr').textContent = m.msg; break;
     case 'editerr': $('editorerr').textContent = m.msg; break;
     case 'notice': setNotice(m.msg); break;
@@ -236,7 +262,7 @@ function showLobby() {
     li.innerHTML = '<span></span><span></span>';
     li.children[0].textContent = p.name + (p.id === m.creator ? ' ★' : '') + (p.id === me ? ' (you)' : '');
     // from the second finished game on, show the wins in this room
-    li.children[1].textContent = (m.games >= 2 ? `🏆 ${p.wins}` + (p.ready ? ' · ' : '') : '') + (p.ready ? 'ready' : '');
+    li.children[1].textContent = (m.games >= 2 ? `🏆 ${p.wins}` + (p.ready ? ' · ' : '') : '') + (p.away ? 'reconnecting…' : p.ready ? 'ready' : '');
     if (p.ready) li.children[1].className = 'ready';
     $('playerlist').appendChild(li);
   }
@@ -291,7 +317,7 @@ $('btn-ready').onclick = () => {
   setNotice('');
   send({ t: 'ready', v: !(mine && mine.ready) });
 };
-$('btn-leave').onclick = () => { send({ t: 'leave' }); me = null; lobby = null; G = null; show('home'); };
+$('btn-leave').onclick = backToStart;
 
 function onCount(m) {
   $('count').hidden = !m.n;
@@ -496,6 +522,11 @@ async function onStart(m) {
     confirmed: 0, pending: [], center: m.center, serverCenter: m.center, penaltyUntil: 0, lockKind: null, pendingSince: null, recent: [], left: {}, names: {}
   };
   m.players.forEach((p, i) => { G.names[p.id] = p.name; G.colors[p.id] = COLORS[i % COLORS.length]; });
+  if (m.resume) {                                  // coming back into a running game: carry on where the server says we are
+    G.confirmed = m.resume.played; G.center = G.serverCenter = m.center;
+    for (const [id, n] of m.resume.left) G.left[id] = n;
+    if (m.resume.penaltyMs > 0) G.penaltyUntil = performance.now() + m.resume.penaltyMs;
+  }
   me = m.you;
   $('count').hidden = true; $('overlay').hidden = true; $('banner').hidden = true;
   layoutCard(m.center); m.stack.slice(0, 3).forEach(layoutCard);
@@ -764,6 +795,6 @@ let booted = false;
   booted = true;
   try { sessionStorage.removeItem('autoReload'); } catch { }
   $('loadreload').hidden = true;
-  show('home');
+  if (me == null) show('home');   // (a reload inside a room has already been taken back to it)
 })();
 $('loadreload').onclick = () => location.reload();

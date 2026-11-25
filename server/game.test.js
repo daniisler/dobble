@@ -301,3 +301,43 @@ test('login attempts are rate limited', async () => {
   }
   assert.ok(limited >= 5, `expected the limiter to kick in, got ${limited}`);
 });
+
+test('a player who loses the connection keeps their seat and can resume it, also in a running game', async () => {
+  if (!server.listening) await new Promise((r) => server.listen(0, r));
+  const port = server.address().port;
+  const a = await client(port), b = await client(port);
+  a.sendj({ t: 'create', name: 'Ann' });
+  const ja = await a.next('joined');
+  const code = (await a.next('lobby')).code;
+  b.sendj({ t: 'join', code, name: 'Bob' });
+  const jb = await b.next('joined');
+  assert.ok(ja.secret && jb.secret && ja.secret !== jb.secret);
+  // a wrong secret is refused
+  const x = await client(port);
+  x.sendj({ t: 'resume', code, id: jb.you, secret: 'f'.repeat(jb.secret.length) });
+  await x.next('resumefail'); x.close();
+  // Bob drops in the lobby: his seat stays, marked away
+  b.close();
+  const away = await a.next('lobby', (m) => m.players.some((p) => p.away));
+  assert.equal(away.players.length, 2);
+  const b2 = await client(port);
+  b2.sendj({ t: 'resume', code, id: jb.you, secret: jb.secret });
+  const re = await b2.next('joined');
+  assert.equal(re.resumed, true); assert.equal(re.you, jb.you);
+  await a.next('lobby', (m) => m.players.every((p) => !p.away));
+  // start a game, drop Bob mid-game, he comes back with his cards
+  a.sendj({ t: 'ready', v: true }); b2.sendj({ t: 'ready', v: true });
+  const sb = await b2.next('start');
+  await a.next('start');
+  b2.close();
+  const b3 = await client(port);
+  b3.sendj({ t: 'resume', code, id: jb.you, secret: jb.secret });
+  const again = await b3.next('start');
+  assert.deepEqual(again.stack, sb.stack);
+  assert.deepEqual(again.center, sb.center);
+  assert.equal(again.resume.played, 0);
+  // leaving for good frees the seat at once
+  b3.sendj({ t: 'leave' });
+  await a.next('prog');
+  a.close(); b3.close();
+});

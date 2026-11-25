@@ -2,6 +2,7 @@
 require('./env');
 const http = require('http');
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 const { generateDeck, shuffle, ORDERS, DECK_SIZES } = require('./deck');
@@ -18,6 +19,8 @@ const SLACK_MS = 150;          // network slack: the client starts its own count
 // how long (seconds) a player may be unreachable before the browser shows "Connection lost" (CONNECTION_TIMEOUT_SECONDS in .env)
 const CONNECTION_TIMEOUT_MS = Math.min(120, Math.max(2, Number(process.env.CONNECTION_TIMEOUT_SECONDS) || 5)) * 1000;
 const COUNTDOWN = 3;
+// how long (seconds) a player who lost the connection keeps their seat in the room and can resume it (RECONNECT_GRACE_SECONDS in .env)
+const RECONNECT_GRACE_MS = Math.min(600, Math.max(5, Number(process.env.RECONNECT_GRACE_SECONDS) || 60)) * 1000;
 
 // ---------------------------------------------------------------- static
 const TYPES = {
@@ -184,17 +187,45 @@ class Room {
   lobbyMsg() {
     return {
       t: 'lobby', code: this.code, state: this.state, creator: this.creator, images: this.images, q: this.q, n: this.n, stack: this.stackSize, maxStack: this.maxStack(),
-      games: this.games, players: this.players.map(p => ({ id: p.id, name: p.name, ready: p.ready, wins: this.wins[p.id] || 0 }))
+      games: this.games, players: this.players.map(p => ({ id: p.id, name: p.name, ready: p.ready, away: p.away, wins: this.wins[p.id] || 0 }))
     };
   }
   pushLobby() { this.broadcast(this.lobbyMsg()); }
   add(ws, name) {
-    const p = { ws, id: this.nextId++, name, ready: false, stack: [], played: 0, penaltyUntil: 0, misses: 0, lastPlayAt: 0, bestMs: Infinity };
+    const p = { ws, id: this.nextId++, secret: crypto.randomBytes(12).toString('hex'), away: false, graceTimer: null, name, ready: false, stack: [], played: 0, penaltyUntil: 0, misses: 0, lastPlayAt: 0, bestMs: Infinity };
     this.players.push(p);
     ws.player = p; ws.room = this;
     if (this.creator === null) this.creator = p.id;
-    send(ws, { t: 'joined', you: p.id });
+    send(ws, { t: 'joined', you: p.id, code: this.code, secret: p.secret, state: this.state });
     this.pushLobby();
+  }
+  // The connection of a player dropped: keep their seat for a while so they can come back (they are un-readied, the game goes on).
+  disconnect(ws) {
+    const p = this.players.find((x) => x.ws === ws);
+    if (!p) return;
+    p.away = true; p.ready = false;
+    ws.player = null; ws.room = null;
+    clearTimeout(p.graceTimer);
+    p.graceTimer = setTimeout(() => this.remove(ws), RECONNECT_GRACE_MS);
+    p.graceTimer.unref();
+    if (this.state === 'countdown') this.cancelCountdown();
+    if (this.state !== 'playing') this.pushLobby();
+  }
+  // a returning player takes their seat back on a new connection and is brought up to date
+  resume(ws, p) {
+    clearTimeout(p.graceTimer);
+    const old = p.ws;
+    if (old !== ws) { old.player = null; old.room = null; try { old.terminate(); } catch { } }
+    p.ws = ws; p.away = false;
+    ws.player = p; ws.room = this;
+    send(ws, { t: 'joined', you: p.id, code: this.code, secret: p.secret, state: this.state, resumed: true });
+    if (this.state === 'playing') {
+      send(ws, {
+        t: 'start', you: p.id, n: this.n, creator: this.creator, images: this.images, center: this.center, stack: p.stack, total: p.stack.length,
+        players: this.players.map(q => ({ id: q.id, name: q.name })),
+        resume: { played: p.played, left: this.players.map(q => [q.id, q.stack.length - q.played]), penaltyMs: Math.max(0, p.penaltyUntil - Date.now()) }
+      });
+    } else this.pushLobby();   // (in a running game the lobby screen must not be pushed over the game)
   }
   remove(ws) {
     const i = this.players.findIndex(p => p.ws === ws);
@@ -327,6 +358,14 @@ wss.on('connection', (ws, req) => {
     const room = ws.room, p = ws.player;
     switch (m.t) {
       case 'ping': return send(ws, { t: 'pong', c: m.c });
+      case 'resume': {
+        if (room) return;
+        const r = rooms.get(String(m.code || '').toUpperCase().trim());
+        const pl = r && r.players.find((x) => x.id === m.id);
+        if (!pl || typeof m.secret !== 'string' || m.secret.length !== pl.secret.length || !crypto.timingSafeEqual(Buffer.from(m.secret), Buffer.from(pl.secret))) return send(ws, { t: 'resumefail' });
+        ws.user = db.userForToken(m.token);
+        return r.resume(ws, pl);
+      }
       case 'create': case 'join': {
         if (room) return;
         ws.user = db.userForToken(m.token);
@@ -387,13 +426,13 @@ wss.on('connection', (ws, req) => {
       case 'cancel':
         if (room && room.creator === p.id) room.cancel();
         return;
-      case 'leave': if (room) room.remove(ws); return;
+      case 'leave': if (room) { clearTimeout(p.graceTimer); room.remove(ws); } return;
       case 'play':
         if (room && Number.isInteger(m.i) && Number.isInteger(m.s)) room.play(p, m.i, m.s);
         return;
     }
   });
-  ws.on('close', () => { if (ws.room) ws.room.remove(ws); });
+  ws.on('close', () => { if (ws.room) ws.room.disconnect(ws); });
   ws.on('error', () => { });
 });
 
