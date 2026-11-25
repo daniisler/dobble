@@ -30,10 +30,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS events_type_ts ON events(type, ts);
   CREATE TABLE IF NOT EXISTS games (
     ts INTEGER NOT NULL, cards INTEGER, players INTEGER, stack INTEGER, duration_ms INTEGER, misses INTEGER, custom_images INTEGER);
-  CREATE TABLE IF NOT EXISTS selections (
-    user_id INTEGER NOT NULL, slot INTEGER NOT NULL, image_id TEXT NOT NULL,
-    PRIMARY KEY (user_id, slot), UNIQUE (user_id, image_id));
+  -- an account can have several named "sets" of picks (which library image replaces which slot of the deck)
+  CREATE TABLE IF NOT EXISTS sets (
+    id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, name TEXT NOT NULL, created INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0);
+  CREATE INDEX IF NOT EXISTS sets_user ON sets(user_id);
+  CREATE TABLE IF NOT EXISTS set_selections (
+    set_id INTEGER NOT NULL, slot INTEGER NOT NULL, image_id TEXT NOT NULL,
+    PRIMARY KEY (set_id, slot), UNIQUE (set_id, image_id));
 `);
+// older versions kept one list of picks per user: it becomes that user's first set, once
+if (db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='selections'").get()) {
+  for (const { user_id } of db.prepare('SELECT DISTINCT user_id FROM selections').all()) {
+    const id = Number(db.prepare('INSERT INTO sets (user_id, name, created, used) VALUES (?,?,?,?)').run(user_id, 'Set 1', Date.now(), Date.now()).lastInsertRowid);
+    db.prepare('INSERT INTO set_selections (set_id, slot, image_id) SELECT ?, slot, image_id FROM selections WHERE user_id = ?').run(id, user_id);
+  }
+  db.exec('DROP TABLE selections');
+}
 
 const q = {
   userByName: db.prepare('SELECT * FROM users WHERE username = ?'),
@@ -46,16 +58,27 @@ const q = {
   insertImage: db.prepare('INSERT INTO images (id, user_id, ext, created) VALUES (?,?,?,?)'),
   image: db.prepare('SELECT id, user_id, ext FROM images WHERE id = ?'),
   deleteImage: db.prepare('DELETE FROM images WHERE id = ? AND user_id = ?'),
-  selections: db.prepare('SELECT s.slot, i.id, i.ext FROM selections s JOIN images i ON i.id = s.image_id WHERE s.user_id = ?'),
-  clearSlot: db.prepare('DELETE FROM selections WHERE user_id = ? AND slot = ?'),
-  clearImage: db.prepare('DELETE FROM selections WHERE user_id = ? AND image_id = ?'),
-  clearAll: db.prepare('DELETE FROM selections WHERE user_id = ?'),
+  selections: db.prepare('SELECT s.slot, i.id, i.ext FROM set_selections s JOIN images i ON i.id = s.image_id WHERE s.set_id = ?'),
+  clearSlot: db.prepare('DELETE FROM set_selections WHERE set_id = ? AND slot = ?'),
+  clearImageInSet: db.prepare('DELETE FROM set_selections WHERE set_id = ? AND image_id = ?'),
+  clearImageEverywhere: db.prepare('DELETE FROM set_selections WHERE image_id = ?'),
+  clearSet: db.prepare('DELETE FROM set_selections WHERE set_id = ?'),
+  setsOf: db.prepare('SELECT id, name FROM sets WHERE user_id = ? ORDER BY created, id'),
+  setById: db.prepare('SELECT id, user_id, name FROM sets WHERE id = ?'),
+  latestSet: db.prepare('SELECT id FROM sets WHERE user_id = ? ORDER BY used DESC, id LIMIT 1'),
+  insertSet: db.prepare('INSERT INTO sets (user_id, name, created, used) VALUES (?,?,?,?)'),
+  countSets: db.prepare('SELECT COUNT(*) AS n FROM sets WHERE user_id = ?'),
+  renameSet: db.prepare('UPDATE sets SET name = ? WHERE id = ? AND user_id = ?'),
+  touchSet: db.prepare('UPDATE sets SET used = ? WHERE id = ?'),
+  deleteSet: db.prepare('DELETE FROM sets WHERE id = ? AND user_id = ?'),
+  delSets: db.prepare('DELETE FROM sets WHERE user_id = ?'),
+  delUserSelections: db.prepare('DELETE FROM set_selections WHERE set_id IN (SELECT id FROM sets WHERE user_id = ?)'),
   userById: db.prepare('SELECT * FROM users WHERE id = ?'),
   allImageFiles: db.prepare('SELECT id, ext FROM images WHERE user_id = ?'),
   delImages: db.prepare('DELETE FROM images WHERE user_id = ?'),
   delSessions: db.prepare('DELETE FROM sessions WHERE user_id = ?'),
   delUser: db.prepare('DELETE FROM users WHERE id = ?'),
-  setSel: db.prepare('INSERT INTO selections (user_id, slot, image_id) VALUES (?,?,?)'),
+  setSel: db.prepare('INSERT INTO set_selections (set_id, slot, image_id) VALUES (?,?,?)'),
 };
 
 // ---- usage statistics (never allowed to break the game: errors are swallowed)
@@ -143,18 +166,37 @@ function deleteImage(userId, id) {
   const r = q.image.get(String(id));
   if (!r || r.user_id !== userId) return false;
   q.deleteImage.run(id, userId);
-  q.clearImage.run(userId, id);
+  q.clearImageEverywhere.run(id);
   fs.rm(path.join(UPLOADS, `${r.id}.${r.ext}`), () => { });
   return true;
 }
 
-// ---- saved slot -> image choices
-const loadSelections = (userId) => Object.fromEntries(q.selections.all(userId).map(r => [r.slot, `/u/${r.id}.${r.ext}`]));
-function saveSelection(userId, slot, imageId) {   // imageId null = back to default
-  q.clearSlot.run(userId, slot);
-  if (imageId) { q.clearImage.run(userId, imageId); q.setSel.run(userId, slot, imageId); }
+// ---- sets: named, saved slot -> image choices. Every account has at least one.
+const MAX_SETS = 30;
+function cleanSetName(name) {
+  const n = String(name ?? '').replace(/\s+/g, ' ').trim().slice(0, 30);
+  if (!n) throw new Error('Give the set a name');
+  return n;
 }
-const clearSelections = (userId) => q.clearAll.run(userId);
+function listSets(userId) {
+  if (!q.countSets.get(userId).n) q.insertSet.run(userId, 'Set 1', Date.now(), Date.now());
+  return q.setsOf.all(userId);
+}
+function latestSet(userId) { listSets(userId); return q.latestSet.get(userId).id; }       // the one used last
+function setOwnedBy(id, userId) { const r = q.setById.get(Number(id)); return r && r.user_id === userId ? r.id : null; }
+function createSet(userId, name) {
+  if (q.countSets.get(userId).n >= MAX_SETS) throw new Error(`At most ${MAX_SETS} sets`);
+  return Number(q.insertSet.run(userId, cleanSetName(name), Date.now(), Date.now()).lastInsertRowid);
+}
+const renameSet = (userId, id, name) => q.renameSet.run(cleanSetName(name), id, userId);
+function deleteSet(userId, id) { q.clearSet.run(id); q.deleteSet.run(id, userId); }
+const touchSet = (id) => q.touchSet.run(Date.now(), id);
+const loadSelections = (setId) => Object.fromEntries(q.selections.all(setId).map(r => [r.slot, `/u/${r.id}.${r.ext}`]));
+function saveSelection(setId, slot, imageId) {   // imageId null = back to default
+  q.clearSlot.run(setId, slot);
+  if (imageId) { q.clearImageInSet.run(setId, imageId); q.setSel.run(setId, slot, imageId); }
+}
+const clearSelections = (setId) => q.clearSet.run(setId);
 
 // ---- account deletion: the user, their sessions, saved picks and every uploaded image (rows and files)
 function deleteAccount(userId, password) {
@@ -167,9 +209,9 @@ function deleteAccount(userId, password) {
     urls.push(`/u/${r.id}.${r.ext}`);
     fs.rmSync(path.join(UPLOADS, `${r.id}.${r.ext}`), { force: true });
   }
-  q.clearAll.run(userId); q.delImages.run(userId); q.delSessions.run(userId); q.delUser.run(userId);
+  q.delUserSelections.run(userId); q.delSets.run(userId); q.delImages.run(userId); q.delSessions.run(userId); q.delUser.run(userId);
   logEvent('account_deleted');
   return urls;
 }
 
-module.exports = { logEvent, logGame, statsOverview, deleteAccount, loadSelections, saveSelection, clearSelections, register, login, logout, userForToken, addImage, listImages, imageOwnedBy, deleteImage, UPLOADS, MAX_BYTES };
+module.exports = { logEvent, logGame, statsOverview, deleteAccount, loadSelections, saveSelection, clearSelections, listSets, latestSet, setOwnedBy, createSet, renameSet, deleteSet, touchSet, register, login, logout, userForToken, addImage, listImages, imageOwnedBy, deleteImage, UPLOADS, MAX_BYTES };

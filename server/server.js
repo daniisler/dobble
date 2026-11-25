@@ -166,6 +166,7 @@ class Room {
     this.creator = null;   // player id allowed to change images
     this.images = {};      // slot (0..56) -> custom image url (each url used at most once)
     this.ownerUserId = null; // account whose saved selections this room mirrors
+    this.setId = null;     // ... and which of that account's sets
     this.q = 7;            // deck order: q*q+q+1 cards (and as many symbols)
     this.stackSize = DEFAULT_STACK;   // cards each player has to get rid of
     this.startedAt = 0;
@@ -210,6 +211,17 @@ class Room {
     p.graceTimer.unref();
     if (this.state === 'countdown') this.cancelCountdown();
     if (this.state !== 'playing') this.pushLobby();
+  }
+  // the set picker is only for the creator who owns the room's images (the account that created it)
+  sendSets(ws) {
+    if (!ws.user || this.ownerUserId !== ws.user.id || !ws.player || this.creator !== ws.player.id) return;
+    send(ws, { t: 'sets', sets: db.listSets(ws.user.id), current: this.setId });
+  }
+  useSet(ws, setId) {
+    this.setId = setId; db.touchSet(setId);
+    this.images = db.loadSelections(setId);
+    for (const pl of this.players) pl.ready = false;
+    this.pushLobby(); this.sendSets(ws);
   }
   // a returning player takes their seat back on a new connection and is brought up to date
   resume(ws, p) {
@@ -364,7 +376,8 @@ wss.on('connection', (ws, req) => {
         const pl = r && r.players.find((x) => x.id === m.id);
         if (!pl || typeof m.secret !== 'string' || m.secret.length !== pl.secret.length || !crypto.timingSafeEqual(Buffer.from(m.secret), Buffer.from(pl.secret))) return send(ws, { t: 'resumefail' });
         ws.user = db.userForToken(m.token);
-        return r.resume(ws, pl);
+        r.resume(ws, pl);
+        return r.sendSets(ws);
       }
       case 'create': case 'join': {
         if (room) return;
@@ -378,8 +391,9 @@ wss.on('connection', (ws, req) => {
           if (r.state !== 'lobby') return send(ws, { t: 'error', msg: 'Game already running' });
         }
         db.logEvent(m.t === 'create' ? 'room_created' : 'room_joined');
-        if (m.t === 'create' && ws.user) { r.ownerUserId = ws.user.id; r.images = db.loadSelections(ws.user.id); }
-        return r.add(ws, name);
+        if (m.t === 'create' && ws.user) { r.ownerUserId = ws.user.id; r.setId = db.latestSet(ws.user.id); r.images = db.loadSelections(r.setId); }
+        r.add(ws, name);
+        return r.sendSets(ws);
       }
       case 'ready':
         if (!room || room.state !== 'lobby') return;
@@ -391,7 +405,7 @@ wss.on('connection', (ws, req) => {
         const persist = room.ownerUserId === ws.user.id;
         if (m.img === null) {
           delete room.images[m.slot];
-          if (persist) db.saveSelection(ws.user.id, m.slot, null);
+          if (persist) db.saveSelection(room.setId, m.slot, null);
         } else {
           const img = db.imageOwnedBy(m.img, ws.user.id);
           if (!img) return;
@@ -400,7 +414,7 @@ wss.on('connection', (ws, req) => {
           for (const k of Object.keys(room.images)) if (room.images[k] === img.url && +k !== m.slot && +k >= room.n) delete room.images[k];
           if (usedAt !== undefined) return send(ws, { t: 'editerr', msg: `That image is already used in slot ${+usedAt + 1}` });
           room.images[m.slot] = img.url;
-          if (persist) db.saveSelection(ws.user.id, m.slot, img.id);
+          if (persist) db.saveSelection(room.setId, m.slot, img.id);
         }
         for (const pl of room.players) pl.ready = false;
         room.pushLobby(); return;
@@ -408,9 +422,20 @@ wss.on('connection', (ws, req) => {
       case 'resetimages':
         if (!room || room.state !== 'lobby' || room.creator !== p.id) return;
         room.images = {};
-        if (ws.user && room.ownerUserId === ws.user.id) db.clearSelections(ws.user.id);
+        if (ws.user && room.ownerUserId === ws.user.id) db.clearSelections(room.setId);
         for (const pl of room.players) pl.ready = false;
         room.pushLobby(); return;
+      case 'useset': case 'newset': case 'renameset': case 'delset': {
+        // only the creator who owns the room's images, only in the lobby
+        if (!room || room.state !== 'lobby' || room.creator !== p.id || !ws.user || room.ownerUserId !== ws.user.id) return;
+        try {
+          if (m.t === 'useset') { const id = db.setOwnedBy(m.id, ws.user.id); if (id) room.useSet(ws, id); }
+          else if (m.t === 'newset') room.useSet(ws, db.createSet(ws.user.id, m.name));
+          else if (m.t === 'renameset') { db.renameSet(ws.user.id, room.setId, m.name); room.sendSets(ws); }
+          else { db.deleteSet(ws.user.id, room.setId); room.useSet(ws, db.latestSet(ws.user.id)); }
+        } catch (e) { send(ws, { t: 'editerr', msg: e.message }); }
+        return;
+      }
       case 'setdeck':
         if (!room || room.state !== 'lobby' || room.creator !== p.id || !ORDERS.includes(m.q)) return;
         room.q = m.q;

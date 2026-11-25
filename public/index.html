@@ -89,10 +89,20 @@
 
     <div id="editor" class="panel wide" hidden>
       <h3>Custom images</h3>
+      <div id="setbar" hidden>
+        <label for="setsel">Set of picks</label>
+        <div class="row">
+          <select id="setsel"></select>
+          <button id="set-new" class="secondary small" title="New empty set">New</button>
+          <button id="set-rename" class="secondary small">Rename</button>
+          <button id="set-del" class="secondary small">Delete</button>
+        </div>
+        <p class="hint">Each set remembers its own picks, so you can switch between them without starting over.</p>
+      </div>
       <p class="hint">Pick an image from your library, then click the slots it should replace. Click a replaced slot with nothing picked to restore it.</p>
       <div class="row">
         <label id="uploadlabel" class="button secondary">Upload images<input id="file" type="file" accept="image/*" multiple hidden></label>
-        <button id="btn-reset" class="secondary">Reset all</button>
+        <button id="btn-reset" class="secondary">Reset this set</button>
       </div>
       <div id="upprogress" hidden>
         <div class="progress"><div id="upfill"></div></div>

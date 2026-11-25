@@ -148,7 +148,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { la
 function onMsg(m) {
   switch (m.t) {
     case 'joined':
-      me = m.you; setSeat({ code: m.code, id: m.you, secret: m.secret });
+      me = m.you; mySets = null; setSeat({ code: m.code, id: m.you, secret: m.secret });
       if (m.resumed) {
         hideConn();
         if (m.state !== 'playing') { G = null; $('overlay').hidden = true; $('banner').hidden = true; }   // the game ended or was cancelled meanwhile
@@ -159,6 +159,7 @@ function onMsg(m) {
       show('home'); $('homeerr').textContent = 'Your room is no longer available.';
       break;
     case 'error': $('homeerr').textContent = m.msg; break;
+    case 'sets': mySets = m; renderSets(); break;
     case 'editerr': $('editorerr').textContent = m.msg; break;
     case 'notice': setNotice(m.msg); break;
     case 'lobby': onLobby(m); break;
@@ -186,7 +187,7 @@ function renderAuth() {
   $('whoami').textContent = username || '';
 }
 function setSession(r) { token = r.token; username = r.username; localStorage.setItem('token', token); }
-function clearSession() { token = null; username = null; library = []; localStorage.removeItem('token'); renderAuth(); }
+function clearSession() { mySets = null; token = null; username = null; library = []; localStorage.removeItem('token'); renderAuth(); }
 
 $('btn-logout').onclick = async () => { try { await api('POST', '/api/logout'); } catch { } clearSession(); };
 $('btn-delete').onclick = () => { $('delform').hidden = false; $('delerr').textContent = ''; $('delpass').focus(); };
@@ -332,7 +333,30 @@ function onCancelled(m) {
 }
 
 // ---- custom image editor (lobby creator with an account)
+// ---- sets of picks (the room creator's account): switch, add, rename, delete
+let mySets = null;
+function renderSets() {
+  const on = !!(mySets && lobby && lobby.creator === me && username);
+  $('setbar').hidden = !on;
+  if (!on) return;
+  const sel = $('setsel'); sel.innerHTML = '';
+  for (const st of mySets.sets) { const o = document.createElement('option'); o.value = st.id; o.textContent = st.name; sel.appendChild(o); }
+  sel.value = mySets.current;
+  $('set-del').disabled = false;
+}
+$('setsel').onchange = (e) => { $('editorerr').textContent = ''; selectedLib = null; send({ t: 'useset', id: +e.target.value }); };
+$('set-new').onclick = () => { const n = prompt('Name of the new set', `Set ${(mySets ? mySets.sets.length : 0) + 1}`); if (n !== null) { selectedLib = null; send({ t: 'newset', name: n }); } };
+$('set-rename').onclick = () => {
+  const cur = mySets && mySets.sets.find((x) => x.id === mySets.current);
+  const n = prompt('New name for this set', cur ? cur.name : ''); if (n !== null) send({ t: 'renameset', name: n });
+};
+$('set-del').onclick = () => {
+  const cur = mySets && mySets.sets.find((x) => x.id === mySets.current);
+  if (cur && confirm(`Delete the set "${cur.name}"? Your uploaded images stay in your library.`)) { selectedLib = null; send({ t: 'delset' }); }
+};
+
 function renderEditor() {
+  renderSets();
   const isCreator = lobby.creator === me;
   $('editor').hidden = !(isCreator && username);
   $('editornote').hidden = !(isCreator && !username);

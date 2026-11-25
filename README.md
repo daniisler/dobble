@@ -159,10 +159,14 @@ As room creator with an account, the lobby shows an image editor:
 1. **Upload images.** Any PNG, JPEG or WebP is fine; large pictures are **downscaled automatically** (see below).
    They appear in *Your library*.
 2. Click an image in the library, then click the slot(s) it should replace. Click a replaced slot with nothing picked to
-   restore the default image, or use *Reset all*.
+   restore the default image, or use *Reset this set*.
 3. Each image can be used **only once per deck**. Used images are dimmed in the library with a badge showing their slot.
-4. Your picks are **saved on your account** and applied automatically to every room you create.
-5. Deleting an image from the library also removes it from your saved picks and from open rooms.
+4. Your picks are **saved on your account in sets**. Every account has at least one set ("Set 1"); above the slots the room
+   creator can switch between sets, create a new empty one (*New*), *Rename* or *Delete* the current one (up to 30 sets; the
+   uploaded images are never deleted with a set). Each set remembers its own slot to image choices, and the same library image
+   can be in several sets. A new room starts with the set you used last. Switching sets un-readies everybody, because the
+   images change. Picks saved before sets existed became "Set 1" automatically.
+5. Deleting an image from the library also removes it from all your sets and from open rooms.
 
 Other things to know:
 
@@ -173,7 +177,7 @@ Other things to know:
 - A limit of 300 images per account (enough for a complete 273-card deck).
 - Uploading many pictures at once is fine: three are uploaded in parallel, a progress bar shows how far it is, and a
   summary lists any pictures that failed. If a limit is hit, the rest is skipped with a clear message.
-- **Delete account** (home screen, needs the password) removes the account, all uploaded images and the saved picks.
+- **Delete account** (home screen, needs the password) removes the account, all uploaded images, sets and saved picks.
 - Only the room creator edits images, and only with images from their own library. Everybody in the room sees the result.
 
 ### Default images

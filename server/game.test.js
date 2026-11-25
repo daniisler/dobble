@@ -341,3 +341,47 @@ test('a player who loses the connection keeps their seat and can resume it, also
   await a.next('prog');
   a.close(); b3.close();
 });
+
+test('an account can keep several sets of picks and switch between them', async () => {
+  if (!server.listening) await new Promise((r) => server.listen(0, r));
+  const port = server.address().port, base = `http://localhost:${port}`;
+  const post = (u, b, tok, raw) => fetch(base + u, { method: 'POST', headers: Object.assign({ Authorization: 'Bearer ' + tok }, raw ? {} : { 'Content-Type': 'application/json' }), body: raw || JSON.stringify(b) });
+  const { token } = await (await fetch(base + '/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'setter', password: 'secret1' }) })).json();
+  const webp = fs.readFileSync(path.join(__dirname, '..', 'public', 'img', '0.webp'));
+  const i1 = await (await post('/api/images', null, token, webp)).json();
+  const i2 = await (await post('/api/images', null, token, webp)).json();
+
+  const a = await client(port);
+  a.sendj({ t: 'create', token });
+  const s0 = await a.next('sets');
+  assert.equal(s0.sets.length, 1); assert.equal(s0.sets[0].name, 'Set 1');
+  const first = s0.current;
+  a.sendj({ t: 'setimage', slot: 1, img: i1.id });
+  assert.equal((await a.next('lobby', (m) => m.images[1])).images[1], i1.url);
+  // a new set starts empty, and the picks are kept per set
+  a.sendj({ t: 'newset', name: '  Second   set ' });
+  const s1 = await a.next('sets', (m) => m.sets.length === 2);
+  assert.equal(s1.sets[1].name, 'Second set'); assert.notEqual(s1.current, first);
+  assert.deepEqual((await a.next('lobby', (m) => !m.images[1])).images, {});
+  a.sendj({ t: 'setimage', slot: 2, img: i2.id });
+  await a.next('lobby', (m) => m.images[2]);
+  a.sendj({ t: 'useset', id: first });
+  assert.deepEqual((await a.next('lobby', (m) => m.images[1])).images, { 1: i1.url });
+  // somebody else's set id is refused; renaming and deleting work
+  a.sendj({ t: 'useset', id: 99999 });
+  a.sendj({ t: 'renameset', name: 'Mine' });
+  assert.equal((await a.next('sets', (m) => m.sets[0].name === 'Mine')).current, first);
+  a.sendj({ t: 'delset' });
+  const after = await a.next('sets', (m) => m.sets.length === 1);
+  assert.equal(after.sets[0].name, 'Second set');
+  // a new room by the same account starts with the set used last
+  a.close();
+  const c = await client(port);
+  c.sendj({ t: 'create', token });
+  const s2 = await c.next('sets');
+  assert.equal(s2.current, after.current);
+  assert.deepEqual((await c.next('lobby')).images, { 2: i2.url });
+  // deleting an image removes it from every set
+  assert.equal((await fetch(base + '/api/images/' + i2.id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } })).status, 200);
+  c.close();
+});
